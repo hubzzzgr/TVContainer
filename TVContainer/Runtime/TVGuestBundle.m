@@ -3,7 +3,6 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/runtime.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
 
 static NSBundle *guestBundle;
 static CFBundleRef guestCFBundle;
@@ -22,13 +21,13 @@ static void updateCFCacheIfAvailable(CFBundleRef original, CFBundleRef replaceme
 #endif
     if (!slot) return;
     CFBundleRef current = NULL;
-    mach_vm_size_t read = 0;
-    if (mach_vm_read_overwrite(mach_task_self(), (mach_vm_address_t)slot, sizeof(current),
-                              (mach_vm_address_t)&current, &read) != KERN_SUCCESS ||
+    vm_size_t read = 0;
+    if (vm_read_overwrite(mach_task_self(), (vm_address_t)slot, sizeof(current),
+                         (vm_address_t)&current, &read) != KERN_SUCCESS ||
         read != sizeof(current) || current != original) return;
     // This can fail on protected memory. The imported-function hook below is
     // the fallback; no code-page protection changes are needed in JIT-less mode.
-    mach_vm_write(mach_task_self(), (mach_vm_address_t)slot, (vm_offset_t)&replacement, sizeof(replacement));
+    vm_write(mach_task_self(), (vm_address_t)slot, (vm_offset_t)&replacement, sizeof(replacement));
 }
 
 NSString *TVInstallGuestBundle(NSBundle *bundle) {

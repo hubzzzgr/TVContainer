@@ -24,8 +24,8 @@ int main(int argc, char **argv) {
         NSURL *path = [root URLByAppendingPathComponent:@"Guest.bundle"];
         NSFileManager *fm = NSFileManager.defaultManager;
         assert([fm createDirectoryAtURL:path withIntermediateDirectories:YES attributes:nil error:nil]);
-        assert([@{@"CFBundleIdentifier": @"org.tvcontainer.test-guest", @"CFBundleName": @"Guest"}
-            writeToURL:[path URLByAppendingPathComponent:@"Info.plist"] error:nil]);
+        assert(([@{@"CFBundleIdentifier": @"org.tvcontainer.test-guest", @"CFBundleName": @"Guest"}
+            writeToURL:[path URLByAppendingPathComponent:@"Info.plist"] error:nil]));
         assert([@"guest resource" writeToURL:[path URLByAppendingPathComponent:@"marker.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil]);
         NSBundle *guest = [NSBundle bundleWithURL:path];
         assert(guest && guest != host);
