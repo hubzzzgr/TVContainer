@@ -58,6 +58,12 @@ This does **not** emulate iOS frameworks. An iPhone IPA must be rebuilt or porte
 for tvOS by its author. Guest extensions and arbitrary third-party tweaks are not
 supported in the initial standalone tvOS target.
 
+The iOS LiveProcess mmap workaround and chained-fixup exception workaround use
+Mach APIs unavailable on tvOS and are excluded. Apps needing that chained-fixup
+workaround are rejected with an explanation. The launcher checks both known
+system relaunch selectors and leaves the selected guest queued for a manual
+close/reopen if the system does not permit automatic relaunch.
+
 tvOS permits purgeable local cache storage. Apps and containers live under
 `Library/Caches/TVContainer/Documents`; they can be removed by tvOS when storage
 is low. The signing identity remains in Keychain. Keep original IPAs and external

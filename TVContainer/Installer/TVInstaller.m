@@ -20,7 +20,7 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
         return TVError(@"TVContainer requires thin arm64 tvOS binaries. Export the app for Apple TV devices.");
     if (header->sizeofcmds > data.length - sizeof(*header)) return TVError(@"Invalid Mach-O load commands.");
     NSUInteger cursor = sizeof(*header), end = cursor + header->sizeofcmds;
-    BOOL television = NO, entry = NO;
+    BOOL television = NO, entry = NO, text = NO;
     for (uint32_t i = 0; i < header->ncmds; i++) {
         if (cursor > end || end - cursor < sizeof(struct load_command)) return TVError(@"Truncated Mach-O load command.");
         const struct load_command *cmd = data.bytes + cursor;
@@ -32,14 +32,28 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
                 return TVError(@"This app needs a newer version of tvOS.");
         }
         if (cmd->cmd == LC_VERSION_MIN_TVOS) television = YES;
-        if (cmd->cmd == LC_MAIN && cmd->cmdsize >= sizeof(struct entry_point_command)) entry = YES;
+        if (cmd->cmd == LC_MAIN && cmd->cmdsize >= sizeof(struct entry_point_command)) {
+            uint64_t offset = ((const struct entry_point_command *)cmd)->entryoff;
+            entry = offset > 0 && offset < data.length;
+        }
+        if (cmd->cmd == LC_SEGMENT_64) {
+            if (cmd->cmdsize < sizeof(struct segment_command_64)) return TVError(@"Truncated Mach-O segment.");
+            const struct segment_command_64 *segment = (const void *)cmd;
+            if (segment->nsects > (cmd->cmdsize - sizeof(*segment)) / sizeof(struct section_64)) return TVError(@"Invalid Mach-O sections.");
+            const struct section_64 *sections = (const void *)(segment + 1);
+            for (uint32_t j = 0; j < segment->nsects; j++) {
+                if (!strncmp(sections[j].sectname, "__text", 16)) {
+                    text = sections[j].offset >= end && sections[j].offset < data.length;
+                }
+            }
+        }
         if ((cmd->cmd == LC_ENCRYPTION_INFO_64 || cmd->cmd == LC_ENCRYPTION_INFO) &&
             cmd->cmdsize >= sizeof(struct encryption_info_command) && ((const struct encryption_info_command *)cmd)->cryptid)
             return TVError(@"Encrypted App Store apps cannot be hosted. Use a decrypted tvOS IPA.");
         cursor += cmd->cmdsize;
     }
     if (!television) return TVError(@"This is not a tvOS device app. iOS and simulator apps need to be rebuilt for Apple TV; changing their platform does not supply missing frameworks.");
-    if (mainExecutable && (!entry || header->filetype != MH_EXECUTE)) return TVError(@"The app has no supported executable entry point.");
+    if (mainExecutable && (!entry || !text || header->filetype != MH_EXECUTE)) return TVError(@"The app has no supported executable entry point.");
     return nil;
 }
 
@@ -77,6 +91,8 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
         NSURL *app = apps.firstObject ?: stage;
         NSMutableDictionary *info = [NSMutableDictionary dictionaryWithContentsOfURL:[app URLByAppendingPathComponent:@"Info.plist"]];
         NSString *executable = info[@"CFBundleExecutable"], *identifier = info[@"CFBundleIdentifier"];
+        if (![executable isKindOfClass:NSString.class]) executable = nil;
+        if (![identifier isKindOfClass:NSString.class]) identifier = nil;
         if (!error && (!executable.length || !identifier.length || ![executable.lastPathComponent isEqualToString:executable])) error = TVError(@"The IPA has an invalid Info.plist.");
         NSURL *binary = [app URLByAppendingPathComponent:executable ?: @""];
         if (!error) error = validateExecutable(binary, YES);
@@ -137,8 +153,6 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
     [defaults setObject:metadata[@"LCDataUUID"] forKey:@"selectedContainer"];
     [defaults synchronize];
     if (!TVRelaunch(completion)) {
-        [defaults removeObjectForKey:@"selected"];
-        [defaults removeObjectForKey:@"selectedContainer"];
         completion(TVError(@"tvOS could not relaunch TVContainer. Close and reopen it to launch the selected guest."));
     }
 }

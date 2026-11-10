@@ -8,18 +8,28 @@ BOOL TVRelaunch(void (^completion)(NSError *)) {
     Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
     if (![workspaceClass respondsToSelector:@selector(defaultWorkspace)]) return NO;
     LSApplicationWorkspace *workspace = [workspaceClass defaultWorkspace];
-    if (![workspace respondsToSelector:@selector(openApplicationWithBundleIdentifier:configuration:completionHandler:)]) return NO;
+    BOOL configurationAPI = [workspace respondsToSelector:@selector(openApplicationWithBundleIdentifier:configuration:completionHandler:)];
+    BOOL usingConfigurationAPI = [workspace respondsToSelector:@selector(openApplicationWithBundleIdentifier:usingConfiguration:completionHandler:)];
+    if (!configurationAPI && !usingConfigurationAPI) return NO;
     NSString *bundleID = NSUserDefaults.lcMainBundle.bundleIdentifier;
-    [workspace openApplicationWithBundleIdentifier:bundleID configuration:[NSClassFromString(@"_LSOpenConfiguration") new]
-        completionHandler:^(BOOL success, NSError *error) {
+    __block NSUInteger failures = 0;
+    void (^handler)(BOOL, NSError *) = ^(BOOL success, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
             if (!success) {
-                completion(error ?: [NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"tvOS refused the relaunch request. Close and reopen TVContainer to launch the selected app."}]);
+                if (++failures == 2) completion(error ?: [NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"tvOS refused the relaunch request. Close and reopen TVContainer to launch the selected app."}]);
                 return;
             }
-            // A new process must enter the guest before UIApplication initializes.
+            // Queue both open requests before terminating, as in upstream's
+            // foreground relaunch sequence. Enter the guest before UIKit starts.
             [NSUserDefaults.lcUserDefaults synchronize];
             kill(getpid(), SIGKILL);
-        }];
+        });
+    };
+    for (NSUInteger attempt = 0; attempt < 2; attempt++) {
+        _LSOpenConfiguration *configuration = [NSClassFromString(@"_LSOpenConfiguration") new];
+        if (configurationAPI) [workspace openApplicationWithBundleIdentifier:bundleID configuration:configuration completionHandler:handler];
+        else [workspace openApplicationWithBundleIdentifier:bundleID usingConfiguration:configuration completionHandler:handler];
+    }
     return YES;
 }
 
