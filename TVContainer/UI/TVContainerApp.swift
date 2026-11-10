@@ -107,7 +107,7 @@ final class TVLibrary: ObservableObject {
 
     func removeCertificate() {
         do {
-            try TVInstaller.removeCertificateWithError()
+            try TVInstaller.removeCertificate()
             reload()
             status = "Signing certificate removed."
         } catch { self.error = error.localizedDescription }

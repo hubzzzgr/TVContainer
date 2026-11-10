@@ -418,17 +418,26 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSString*)findDefaultContainerWithBundleId:(NSString*)bundleId {
+#if TARGET_OS_TV
+    NSString *infoPath = [[TVStorageRoot() URLByAppendingPathComponent:@"Documents/Applications"] URLByAppendingPathComponent:[bundleId stringByAppendingPathComponent:@"LCAppInfo.plist"]].path;
+    return [NSDictionary dictionaryWithContentsOfFile:infoPath][@"LCDataUUID"];
+#else
     // find app's default container
     NSURL* appGroupFolder = [[LCSharedUtils appGroupPath] URLByAppendingPathComponent:@"LiveContainer"];
     
     NSString* bundleInfoPath = [NSString stringWithFormat:@"%@/Applications/%@/LCAppInfo.plist", appGroupFolder.path, bundleId];
     NSDictionary* infoDict = [NSDictionary dictionaryWithContentsOfFile:bundleInfoPath];
     return infoDict[@"LCDataUUID"];
+#endif
 }
 
 + (NSArray<NSString*>*)lcUnorderedUrlSchemes {
+#if TARGET_OS_TV
+    return @[@"tvcontainer"];
+#else
     NSArray<NSString *> *defaultSchemes = @[@"livecontainer", @"livecontainer2", @"livecontainer3"];
     return defaultSchemes;
+#endif
 }
 
 + (NSArray<NSString*>*)lcUrlSchemes {

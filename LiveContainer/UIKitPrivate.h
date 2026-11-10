@@ -17,9 +17,11 @@
 - (UIActivityContinuationManager*)_getActivityContinuationManager;
 @end
 
+#if !TARGET_OS_TV
 @interface UIContextMenuInteraction(private)
 - (void)_presentMenuAtLocation:(CGPoint)location;
 @end
+#endif
 
 @interface _UIContextMenuStyle : NSObject <NSCopying>
 @property(nonatomic) NSInteger preferredLayout;
@@ -51,14 +53,18 @@
 @end
 
 @interface UIMutableApplicationSceneSettings : UIApplicationSceneSettings
+#if !TARGET_OS_TV
 @property (assign,nonatomic) UIDeviceOrientation deviceOrientation;
 - (void)setInterfaceOrientation:(UIInterfaceOrientation)o;
+#endif
 @end
 
 
 
 @interface UIMutableApplicationSceneClientSettings : UIApplicationSceneClientSettings
+#if !TARGET_OS_TV
 @property (assign,nonatomic) UIDeviceOrientation deviceOrientation;
+#endif
 @property(nonatomic, assign) NSInteger interfaceOrientation;
 @property(nonatomic, assign) NSInteger statusBarStyle;
 @end
@@ -103,6 +109,7 @@ extern NSString* FBSOpenApplicationOptionKeyPayloadURL;
 
 @end
 
+#if !TARGET_OS_TV
 @interface UINavigationBar(private)
 - (UIFont *)_defaultTitleFont;
 @end
@@ -110,6 +117,7 @@ extern NSString* FBSOpenApplicationOptionKeyPayloadURL;
 @interface _UIPrototypingMenuSlider : UISlider
 @property(nonatomic, assign, readwrite) CGFloat stepSize;
 @end
+#endif
 
 @interface UISceneActivationRequestOptions(private)
 -(void)_setRequestFullscreen:(BOOL)arg1;

@@ -93,7 +93,7 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
         }
         
         NSString* currentFile = [NSString stringWithUTF8String:archive_entry_pathname(entry)];
-        NSString *root = extractionPath.stringByStandardizingPath;
+        NSString *root = extractionPath.stringByStandardizingPath.stringByResolvingSymlinksInPath;
         NSString* fullOutputPath = [root stringByAppendingPathComponent:currentFile].stringByStandardizingPath;
         if (!currentFile.length || currentFile.isAbsolutePath || [currentFile.pathComponents containsObject:@".."] ||
             ![fullOutputPath hasPrefix:[root stringByAppendingString:@"/"]] ||

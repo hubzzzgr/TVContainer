@@ -1,3 +1,11 @@
+# TVContainer
+
+Apple TV port of LiveContainer with a Siri Remote interface and URL-only app and
+certificate installation. See [the tvOS build and usage guide](TVContainer/README.md).
+GitHub Actions builds only the standalone **TVContainer.ipa** from `project.yml`.
+
+The original LiveContainer documentation follows for attribution and reference.
+
 <div align="center">
    <img width="217" height="217" src="./screenshots/livecontainer_icon.png" alt="Logo">
 </div>
