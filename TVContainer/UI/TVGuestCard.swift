@@ -14,7 +14,7 @@ struct TVGuestCard: View {
                     Image(uiImage: icon).resizable().interpolation(.high).scaledToFit()
                 } else {
                     ZStack {
-                        Color.blue.gradient
+                        Rectangle().fill(.blue.gradient)
                         Image(systemName: "app.dashed").font(.system(size: 66)).foregroundStyle(.white)
                     }
                 }
