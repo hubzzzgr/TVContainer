@@ -153,9 +153,12 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
     [defaults setObject:folder forKey:@"selected"];
     [defaults setObject:metadata[@"LCDataUUID"] forKey:@"selectedContainer"];
     [defaults synchronize];
-    if (!TVRelaunch(completion)) {
-        completion(TVError(@"tvOS could not relaunch TVContainer. Close and reopen it to launch the selected guest."));
-    }
+    TVRelaunch(^(NSError *error) {
+        [defaults removeObjectForKey:@"selected"];
+        [defaults removeObjectForKey:@"selectedContainer"];
+        [defaults synchronize];
+        completion(error);
+    });
 }
 + (BOOL)removeApp:(NSString *)folder error:(NSError **)error {
     if (![folder.lastPathComponent isEqualToString:folder]) return NO;

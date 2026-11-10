@@ -756,6 +756,9 @@ static void exceptionHandler(NSException *exception) {
 }
 
 int LiveContainerMain(int argc, char *argv[]) {
+#if TARGET_OS_TV
+    TVCaptureRelaunchContext(argc, argv);
+#endif
     lcMainBundle = [NSBundle mainBundle];
     lcUserDefaults = NSUserDefaults.standardUserDefaults;
     

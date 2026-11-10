@@ -15,6 +15,18 @@ final class ProgressRecorder: @unchecked Sendable {
 
 @main struct DownloadTests {
     static func main() async throws {
+        for (size, unit) in [(999 as Int64, "B"), (1_000, "KB"), (999_999, "KB"),
+                             (1_000_000, "MB"), (1_000_000_000, "GB"), (1_000_000_000_000, "TB")] {
+            let start = TVDownloadProgress(received: 0, total: size)
+            let end = TVDownloadProgress(received: size, total: size)
+            assert(start.unit == unit && end.unit == unit)
+            assert(start.totalText == end.totalText)
+            assert(end.receivedText == end.totalText)
+        }
+        assert(TVDownloadProgress(received: 1_500, total: 2_000_000).receivedText == (0.0).formatted(.number.precision(.fractionLength(2))))
+        assert(TVDownloadProgress(received: 1_500, total: nil).unit == "KB")
+        assert(TVDownloadProgress(received: 1_500, total: nil).totalText == "—")
+        assert(TVDownloadProgress(received: Int64.max).unit == "EB")
         let base = URL(string: CommandLine.arguments[1])!
         let size: Int64 = 2 * 1024 * 1024
         let known = ProgressRecorder()
@@ -51,6 +63,6 @@ final class ProgressRecorder: @unchecked Sendable {
             fatalError("Cancellation was ignored")
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {}
-        print("Download tests passed: known and unknown byte totals, incremental progress, size limit, HTTP failure, cancellation.")
+        print("Download tests passed: B/KB/MB/GB/TB units, stable known-size units, unknown totals, incremental progress, size limit, HTTP failure, cancellation.")
     }
 }

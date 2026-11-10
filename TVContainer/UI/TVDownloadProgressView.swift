@@ -26,10 +26,10 @@ struct TVDownloadProgressView: View {
                 Text("Downloaded").foregroundStyle(.secondary)
                 Spacer(minLength: 12)
                 HStack(spacing: 8) {
-                    Text(progress.received.formatted()).frame(width: 190, alignment: .trailing)
+                    Text(progress.receivedText).frame(width: 140, alignment: .trailing)
                     Text("/")
-                    Text(progress.total?.formatted() ?? "—").frame(width: 190, alignment: .trailing)
-                    Text("bytes")
+                    Text(progress.totalText).frame(width: 140, alignment: .trailing)
+                    Text(progress.unit).frame(width: 42, alignment: .leading)
                 }
                 .fixedSize(horizontal: true, vertical: false)
                 Text(progress.fraction.map { "\(Int($0 * 100))%" } ?? "—")

@@ -11,3 +11,4 @@ TVContainer.xcodeproj/
 build/
 build.log
 icon-tests.log
+settings-tests.log

@@ -2,37 +2,25 @@
 #import <Security/Security.h>
 #import "../../LiveContainer/UIKitPrivate.h"
 #import "../../LiveContainer/utils.h"
-#include <signal.h>
+#include "TVProcessReexec.h"
 
-BOOL TVRelaunch(void (^completion)(NSError *)) {
-    Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
-    if (![workspaceClass respondsToSelector:@selector(defaultWorkspace)]) return NO;
-    LSApplicationWorkspace *workspace = [workspaceClass defaultWorkspace];
-    BOOL configurationAPI = [workspace respondsToSelector:@selector(openApplicationWithBundleIdentifier:configuration:completionHandler:)];
-    BOOL usingConfigurationAPI = [workspace respondsToSelector:@selector(openApplicationWithBundleIdentifier:usingConfiguration:completionHandler:)];
-    if (!configurationAPI && !usingConfigurationAPI) return NO;
-    NSString *bundleID = NSUserDefaults.lcMainBundle.bundleIdentifier;
-    __block NSUInteger failures = 0;
-    void (^handler)(BOOL, NSError *) = ^(BOOL success, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (!success) {
-                if (++failures == 2) completion(error ?: [NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"tvOS refused the relaunch request. Close and reopen TVContainer to launch the selected app."}]);
-                return;
-            }
-            // Queue both open requests before terminating, as in upstream's
-            // foreground relaunch sequence. Enter the guest before UIKit starts.
-            [NSUserDefaults.lcUserDefaults synchronize];
-            kill(getpid(), SIGKILL);
-        });
-    };
-    for (NSUInteger attempt = 0; attempt < 2; attempt++) {
-        _LSOpenConfiguration *configuration = [NSClassFromString(@"_LSOpenConfiguration") new];
-        if (configurationAPI) [workspace openApplicationWithBundleIdentifier:bundleID configuration:configuration completionHandler:handler];
-        else [workspace openApplicationWithBundleIdentifier:bundleID usingConfiguration:configuration completionHandler:handler];
-    }
-    return YES;
+void TVCaptureRelaunchContext(int argc, char *argv[]) {
+    extern char **environ;
+    TVPrepareReexec(NSBundle.mainBundle.executablePath.fileSystemRepresentation, argc, argv, environ);
 }
 
+BOOL TVRelaunch(void (^completion)(NSError *)) {
+    [NSUserDefaults.lcUserDefaults synchronize];
+    int result = TVPerformReexec();
+    // Successful re-execution never returns. A rejected request leaves the
+    // current UI alive, so an unsupported device does not drop to Home Screen.
+    NSError *underlying = [NSError errorWithDomain:NSPOSIXErrorDomain code:result userInfo:nil];
+    completion([NSError errorWithDomain:@"TVContainer" code:result userInfo:@{
+        NSLocalizedDescriptionKey: [NSString stringWithFormat:@"tvOS could not restart TVContainer in place (%@). The app has stayed open.", underlying.localizedDescription],
+        NSUnderlyingErrorKey: underlying
+    }]);
+    return YES;
+}
 NSURL *TVStorageRoot(void) {
     const char *hostHome = getenv("LC_HOST_HOME_PATH") ?: getenv("HOME");
     return [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/Library/Caches/TVContainer", hostHome] isDirectory:YES];

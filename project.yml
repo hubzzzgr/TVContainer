@@ -36,8 +36,8 @@ targets:
       properties:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
-        CFBundleShortVersionString: '1.0.3'
-        CFBundleVersion: '4'
+        CFBundleShortVersionString: '1.0.4'
+        CFBundleVersion: '5'
         CFBundleURLTypes:
           - CFBundleURLName: com.kdt.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -134,6 +134,28 @@ targets:
     dependencies:
       - target: LiveContainerShared
       - sdk: UIKit.framework
+  TVSettingsHarness:
+    type: application
+    platform: tvOS
+    sources:
+      - tests/TVSettingsHarness.swift
+      - TVContainer/UI/TVSettingsView.swift
+      - TVContainer/UI/TVWorthCheckingOutView.swift
+      - TVContainer/Runtime/TVProcessReexec.c
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.settings-harness
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      SWIFT_OBJC_BRIDGING_HEADER: tests/SettingsHarness-Bridging.h
+  TVSettingsNavigationTests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources: [tests/TVSettingsNavigationTests.swift]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.settings-tests
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: TVSettingsHarness
   TVGuestIconTests:
     type: bundle.unit-test
     platform: tvOS
@@ -164,6 +186,13 @@ schemes:
       config: Debug
     archive:
       config: Release
+  TVContainerSettingsTests:
+    build:
+      targets:
+        TVSettingsHarness: all
+        TVSettingsNavigationTests: [test]
+    test:
+      targets: [TVSettingsNavigationTests]
   TVContainerIconTests:
     build:
       targets:
