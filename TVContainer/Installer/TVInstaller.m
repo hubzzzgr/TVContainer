@@ -97,6 +97,8 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
                 LCChangeMachOUUID(header);
             });
             if (message) error = TVError(message);
+            if (!error && (patchResult & PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH))
+                error = TVError(@"This executable has an incompatible chained-fixup layout. tvOS does not support the Mach exception workaround required to host it.");
         }
         // Native tvOS apps need neither the iPhone file picker shim nor rotation hooks.
         NSString *folder = [NSUUID.UUID.UUIDString stringByAppendingPathExtension:@"app"];

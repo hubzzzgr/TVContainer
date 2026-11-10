@@ -44,6 +44,7 @@ uint32_t guestAppSdkVersionSet = 0;
 bool (*orig_dyld_program_sdk_at_least)(void* dyldPtr, dyld_build_version_t version);
 uint32_t (*orig_dyld_get_program_sdk_version)(void* dyldPtr);
 
+#if !TARGET_OS_TV
 mach_port_t excPort;
 void *exception_handler(void *unused);
 
@@ -55,6 +56,7 @@ static void ensureBreakpointExceptionHandler(void) {
     pthread_t thread;
     pthread_create(&thread, NULL, exception_handler, NULL);
 }
+#endif
 
 static void overwriteAppExecutableFileType(void) {
     struct mach_header_64* appImageMachOHeader = (struct mach_header_64*) orig_dyld_get_image_header(appMainImageIndex);
@@ -566,6 +568,7 @@ void *dlopen_nolock(const char *path, int mode) {
 
 #pragma mark - Workaround `file system sandbox blocked mmap()`
 // when using multitask app in private container, we need to temporarily hook dyld's mmap
+#if !TARGET_OS_TV
 void *exception_handler(void *unused) {
     mach_msg_server(mach_exc_server, sizeof(union __RequestUnion__catch_mach_exc_subsystem), excPort, MACH_MSG_OPTION_NONE);
     abort();
@@ -613,6 +616,13 @@ void *jitless_hook_dlopen(const char *path, int mode) {
     
     return result;
 }
+#else
+// TVContainer runs a single guest in its own process. The LiveProcess mmap
+// workaround needs Mach exception APIs that tvOS does not expose.
+void *jitless_hook_dlopen(const char *path, int mode) {
+    __attribute__((musttail)) return orig_dlopen(path, mode);
+}
+#endif
 
 void* jitless_hook_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
     void *map = __mmap(addr, len, prot, flags, fd, offset);
@@ -635,6 +645,10 @@ static void *machOChainedFixupsValidLinkedit;
 static void *machoErrorCtor;
 
 void bypass_seg_count_check(void (^block)(void)) {
+#if TARGET_OS_TV
+    // Incompatible chained-fixup layouts are rejected by the tvOS installer.
+    block();
+#else
     void *validLinkedit = findDyldSymbolWithCache(@"__ZNK6mach_o13ChainedFixups13validLinkeditEybNSt3__14spanIKNS_13MappedSegmentELm18446744073709551615EEEb", &machOChainedFixupsValidLinkedit);
     arm_debug_state64_t origValidLinkeditDebugState = {0};
     exception_mask_t validLinkeditMask = EXC_MASK_BREAKPOINT;
@@ -662,6 +676,7 @@ void bypass_seg_count_check(void (^block)(void)) {
         thread_set_state(thread, ARM_DEBUG_STATE64, (thread_state_t)&origValidLinkeditDebugState, ARM_DEBUG_STATE64_COUNT);
         thread_swap_exception_ports(thread, validLinkeditMask, validLinkeditHandler, validLinkeditBehavior, validLinkeditFlavor, &validLinkeditMask, &validLinkeditMasksCnt, &validLinkeditHandler, &validLinkeditBehavior, &validLinkeditFlavor);
     }
+#endif
 }
 
 void bypass_os_variant_has_internal_content(void (^block)(void)) {
