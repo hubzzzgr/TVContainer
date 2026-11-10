@@ -2,6 +2,8 @@
 
 #include "archive.h"
 #include "archive_entry.h"
+#include <stdlib.h>
+#include <limits.h>
 
 static int
 copy_data(struct archive *ar, struct archive *aw, NSProgress *progress)
@@ -33,6 +35,12 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
     struct archive_entry *entry;
     int flags;
     int r;
+
+    // NSString path normalization can turn /private/var back into /var on Apple
+    // systems. Use the actual filesystem path for libarchive's symlink checks.
+    char resolvedRoot[PATH_MAX];
+    if (!realpath(extractionPath.fileSystemRepresentation, resolvedRoot)) return 1;
+    NSString *root = @(resolvedRoot);
 
     /* Select which attributes we want to restore. */
     flags = ARCHIVE_EXTRACT_TIME;
@@ -93,8 +101,7 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
         }
         
         NSString* currentFile = [NSString stringWithUTF8String:archive_entry_pathname(entry)];
-        NSString *root = extractionPath.stringByStandardizingPath.stringByResolvingSymlinksInPath;
-        NSString* fullOutputPath = [root stringByAppendingPathComponent:currentFile].stringByStandardizingPath;
+        NSString* fullOutputPath = [[root stringByAppendingString:@"/"] stringByAppendingString:currentFile];
         if (!currentFile.length || currentFile.isAbsolutePath || [currentFile.pathComponents containsObject:@".."] ||
             ![fullOutputPath hasPrefix:[root stringByAppendingString:@"/"]] ||
             archive_entry_symlink(entry) || archive_entry_hardlink(entry)) {

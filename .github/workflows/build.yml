@@ -25,12 +25,6 @@ jobs:
           xcode-version: latest-stable
       - name: Install project generator
         run: brew install xcodegen
-      - name: Test IPA extraction
-        run: |
-          mkdir -p build
-          xcrun clang -fobjc-arc -framework Foundation -larchive \
-            tests/extract_harness.m LiveContainerSwiftUI/Utilities/unarchive.m -o build/extract-test
-          python3 tests/test_archive.py build/extract-test
       - name: Generate standalone tvOS project
         run: xcodegen generate --spec project.yml
       - name: Archive Apple TV app
@@ -53,3 +47,14 @@ jobs:
           name: TVContainer-build-log
           path: build.log
           if-no-files-found: ignore
+
+  archive-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test IPA extraction
+        run: |
+          mkdir -p build
+          xcrun clang -fobjc-arc -framework Foundation -larchive \
+            tests/extract_harness.m LiveContainerSwiftUI/Utilities/unarchive.m -o build/extract-test
+          python3 tests/test_archive.py build/extract-test
