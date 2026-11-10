@@ -11,8 +11,12 @@ enum TVQRCode {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(url.absoluteString.utf8)
         filter.correctionLevel = "M"
-        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
-              let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        guard let code = filter.outputImage else { return nil }
+        // A four-module quiet zone is part of the image itself, so scanners can
+        // also decode exported artwork independently of the surrounding view.
+        let background = CIImage(color: CIColor.white).cropped(to: code.extent.insetBy(dx: -4, dy: -4))
+        let output = code.composited(over: background).transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+        guard let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
         return UIImage(cgImage: image)
     }
 }
@@ -36,11 +40,11 @@ struct TVProjectRecommendations: View {
                 Image(uiImage: image).renderingMode(.original)
                     .interpolation(.none).resizable().scaledToFit()
                     .frame(width: 320, height: 320)
-                    .padding(44).background(.white)
+                    .padding(24).background(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .accessibilityLabel("QR code linking to \(url.absoluteString)")
             } else {
-                Text("QR code unavailable").frame(width: 408, height: 408)
+                Text("QR code unavailable").frame(width: 368, height: 368)
             }
             Text(url.absoluteString).font(.system(size: 20))
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
