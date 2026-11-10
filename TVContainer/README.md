@@ -54,6 +54,12 @@ path, preferences, home directory, app groups, and keychain access before enteri
 the guest's `LC_MAIN` entry point. No iPhone rotation, file picker, multitasking,
 or WebKit cookie workaround is injected into tvOS guests.
 
+On tvOS, main-bundle access uses an Objective-C method hook and CoreFoundation
+import rebinding for existing and newly loaded libraries. The private CF cache
+is updated only when its symbol resolves to the original bundle. This avoids
+depending on the iOS TBZ/TBNZ instruction patterns, which differ on tvOS 27.2.
+Guest artwork is read from its own bundle, including layered assets and catalogs.
+
 This does **not** emulate iOS frameworks. An iPhone IPA must be rebuilt or ported
 for tvOS by its author. Guest extensions and arbitrary third-party tweaks are not
 supported in the initial standalone tvOS target.

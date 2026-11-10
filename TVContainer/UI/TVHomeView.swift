@@ -55,7 +55,11 @@ struct TVAppsView: View {
                                     VStack(alignment: .leading, spacing: 16) {
                                         ZStack {
                                             RoundedRectangle(cornerRadius: 20).fill(.blue.gradient)
-                                            Image(systemName: "app.dashed").font(.system(size: 66)).foregroundStyle(.white)
+                                            if let icon = app.icon {
+                                                Image(uiImage: icon).resizable().scaledToFit()
+                                            } else {
+                                                Image(systemName: "app.dashed").font(.system(size: 66)).foregroundStyle(.white)
+                                            }
                                         }.frame(height: 190)
                                         Text(app.name).font(.headline).lineLimit(1)
                                         Text(app.version).font(.caption).foregroundStyle(.secondary)
@@ -81,7 +85,11 @@ struct TVAppDetailView: View {
     @FocusState private var launchFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
-            Image(systemName: "app.fill").font(.system(size: 90)).foregroundStyle(.blue)
+            if let icon = app.icon {
+                Image(uiImage: icon).resizable().scaledToFit().frame(width: 300, height: 180)
+            } else {
+                Image(systemName: "app.fill").font(.system(size: 90)).foregroundStyle(.blue)
+            }
             Text(app.name).font(.largeTitle.bold())
             Text("\(app.bundleID) · \(app.version)").foregroundStyle(.secondary)
             HStack(spacing: 36) {
@@ -164,8 +172,6 @@ struct TVSettingsView: View {
                 }
                 TVOperationStatus()
                 Divider().padding(.vertical)
-                Text("Made for the Siri Remote").font(.title2.bold())
-                Text("Swipe or press to move focus. Select opens an app’s details. Play/Pause launches it. Back returns to the previous screen. Hold Play/Pause inside a guest app to return here.").foregroundStyle(.secondary)
                 Text("Local Storage").font(.title2.bold())
                 Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
                 Text("TVContainer · Standalone · tvOS 17+").font(.caption).foregroundStyle(.secondary)

@@ -13,6 +13,7 @@ struct TVGuest: Identifiable {
     let name: String
     let bundleID: String
     let version: String
+    let icon: UIImage?
 }
 
 struct TVFailure: LocalizedError {
@@ -51,7 +52,8 @@ final class TVLibrary: ObservableObject {
                   let identifier = info["CFBundleIdentifier"] as? String else { return nil }
             return TVGuest(id: url.lastPathComponent,
                 name: info["CFBundleDisplayName"] as? String ?? info["CFBundleName"] as? String ?? identifier,
-                bundleID: identifier, version: info["CFBundleShortVersionString"] as? String ?? "")
+                bundleID: identifier, version: info["CFBundleShortVersionString"] as? String ?? "",
+                icon: TVGuestIcon.load(bundleURL: url, info: info))
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         certificateInstalled = TVInstaller.hasCertificate()
     }

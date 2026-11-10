@@ -3,6 +3,7 @@
 NS_ASSUME_NONNULL_BEGIN
 @interface TVInstaller : NSObject
 + (NSURL *)applicationsURL;
++ (NSArray<NSString *> *)iconAssetNamesAtURL:(NSURL *)url NS_SWIFT_NAME(iconAssetNames(at:));
 + (BOOL)hasCertificate;
 + (BOOL)importCertificate:(NSData *)data password:(NSString *)password error:(NSError **)error;
 + (BOOL)removeCertificateWithError:(NSError **)error NS_SWIFT_NAME(removeCertificate());

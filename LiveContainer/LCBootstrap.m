@@ -10,6 +10,7 @@
 #include <objc/runtime.h>
 #if TARGET_OS_TV
 #import "../TVContainer/Runtime/TVPlatform.h"
+#import "../TVContainer/Runtime/TVGuestBundle.h"
 #endif
 
 #include <dlfcn.h>
@@ -114,6 +115,9 @@ static uint64_t rnd64(uint64_t v, uint64_t r) {
 }
 
 void overwriteMainCFBundle(void) {
+#if TARGET_OS_TV
+    TVInstallGuestBundle(NSBundle.mainBundle);
+#else
     // Overwrite CFBundleGetMainBundle
     uint32_t *pc = (uint32_t *)CFBundleGetMainBundle;
     void **mainBundleAddr = 0;
@@ -151,9 +155,13 @@ void overwriteMainCFBundle(void) {
 #endif
     assert(mainBundleAddr != NULL);
     *mainBundleAddr = (__bridge void *)NSBundle.mainBundle._cfBundle;
+#endif
 }
 
 void overwriteMainNSBundle(NSBundle *newBundle) {
+#if TARGET_OS_TV
+    TVInstallGuestBundle(newBundle);
+#else
     // Overwrite NSBundle.mainBundle
     // iOS 16: x19 is _MergedGlobals
     // iOS 17: x19 is _MergedGlobals+4
@@ -179,6 +187,7 @@ void overwriteMainNSBundle(NSBundle *newBundle) {
     }
 
     assert(![NSBundle.mainBundle.executablePath isEqualToString:oldPath]);
+#endif
 }
 
 typedef struct {
@@ -561,11 +570,17 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     [LCSharedUtils setContainerUsingByLC:lcAppUrlScheme folderName:dataUUID auditToken:0];
 
+    // Install both public bundle accessors before loading guest constructors.
+#if TARGET_OS_TV
+    NSString *bundleError = TVInstallGuestBundle(appBundle);
+    if (bundleError) return bundleError;
+#else
     // Overwrite NSBundle
     overwriteMainNSBundle(appBundle);
 
     // Overwrite CFBundle
     overwriteMainCFBundle();
+#endif
 
     // Overwrite executable info
     if(!appBundle.executablePath) {

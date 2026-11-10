@@ -58,3 +58,12 @@ jobs:
           xcrun clang -fobjc-arc -framework Foundation -larchive \
             tests/extract_harness.m LiveContainerSwiftUI/Utilities/unarchive.m -o build/extract-test
           python3 tests/test_archive.py build/extract-test
+
+  bundle-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Test main bundle hooks without instruction scanning
+        run: bash tests/test_bundle_hooks.sh
