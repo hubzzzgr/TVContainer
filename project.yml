@@ -30,13 +30,14 @@ targets:
     platform: tvOS
     sources:
       - path: LiveContainer/main.c
+      - path: build/TVContainerAssets.xcassets
     info:
       path: TVContainer/Info.plist
       properties:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
-        CFBundleShortVersionString: '1.0.1'
-        CFBundleVersion: '2'
+        CFBundleShortVersionString: '1.0.2'
+        CFBundleVersion: '3'
         CFBundleURLTypes:
           - CFBundleURLName: com.kdt.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -54,6 +55,7 @@ targets:
       OTHER_LDFLAGS: ['-e', '_LiveContainerMainC']
       ENABLE_DEBUG_DYLIB: NO
       CODE_SIGN_ENTITLEMENTS: TVContainer/TVContainer.entitlements
+      ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
     dependencies:
       - target: LiveContainerShared
         link: false
@@ -140,6 +142,8 @@ targets:
       - tests/icon_installer_stub.m
       - tests/IconFixtures.xcassets
       - TVContainer/UI/TVGuestIcon.swift
+      - TVContainer/UI/TVGuest.swift
+      - TVContainer/UI/TVGuestCard.swift
       - TVContainer/Installer/TVIconCatalog.m
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.icon-tests

@@ -26,7 +26,7 @@ jobs:
       - name: Install project generator
         run: brew install xcodegen
       - name: Generate standalone tvOS project
-        run: xcodegen generate --spec project.yml
+        run: bash scripts/generate_project.sh
       - name: Archive Apple TV app
         run: |
           set -o pipefail
@@ -58,6 +58,10 @@ jobs:
           xcrun clang -fobjc-arc -framework Foundation -larchive \
             tests/extract_harness.m LiveContainerSwiftUI/Utilities/unarchive.m -o build/extract-test
           python3 tests/test_archive.py build/extract-test
+          xcrun clang -fobjc-arc -framework Foundation -larchive \
+            tests/prepare_archive_harness.m TVContainer/Installer/TVArchive.m \
+            LiveContainerSwiftUI/Utilities/unarchive.m -o build/prepare-archive-test
+          python3 tests/test_app_archive.py build/prepare-archive-test
 
   bundle-tests:
     runs-on: macos-15
@@ -79,9 +83,15 @@ jobs:
         with:
           xcode-version: latest-stable
       - run: brew install xcodegen
-      - run: xcodegen generate
+      - run: bash scripts/generate_project.sh
       - name: Test guest PNG, catalog, and layered artwork on tvOS
         run: bash tests/test_tv_icons.sh
+      - name: Export card previews
+        if: always()
+        run: |
+          if [ -d build/IconTests.xcresult ]; then
+            xcrun xcresulttool export attachments --path build/IconTests.xcresult --output-path build/card-previews
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -89,3 +99,4 @@ jobs:
           path: |
             build/IconTests.xcresult
             icon-tests.log
+            build/card-previews

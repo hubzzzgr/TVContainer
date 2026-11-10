@@ -49,21 +49,10 @@ struct TVAppsView: View {
                         }.frame(maxWidth: .infinity, minHeight: 360)
                     } else {
                         TextField("Search apps", text: $search).frame(maxWidth: 700)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 330, maximum: 460), spacing: 40)], spacing: 44) {
+                        TVAppFlowLayout {
                             ForEach(filtered) { app in
                                 NavigationLink { TVAppDetailView(app: app) } label: {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 20).fill(.blue.gradient)
-                                            if let icon = app.icon {
-                                                Image(uiImage: icon).resizable().scaledToFit()
-                                            } else {
-                                                Image(systemName: "app.dashed").font(.system(size: 66)).foregroundStyle(.white)
-                                            }
-                                        }.frame(height: 190)
-                                        Text(app.name).font(.headline).lineLimit(1)
-                                        Text(app.version).font(.caption).foregroundStyle(.secondary)
-                                    }.frame(maxWidth: .infinity, alignment: .leading)
+                                    TVGuestCard(app: app)
                                 }
                                 .buttonStyle(.card)
                                 .contextMenu { Button("Launch", systemImage: "play.fill") { library.launch(app) } }
@@ -86,7 +75,9 @@ struct TVAppDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
             if let icon = app.icon {
-                Image(uiImage: icon).resizable().scaledToFit().frame(width: 300, height: 180)
+                Image(uiImage: icon).resizable().scaledToFit()
+                    .frame(width: 300, height: 300 / app.artworkAspectRatio)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
                 Image(systemName: "app.fill").font(.system(size: 90)).foregroundStyle(.blue)
             }
@@ -130,7 +121,7 @@ struct TVInstallView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
             Label("Install from URL", systemImage: "arrow.down.circle").font(.largeTitle.bold())
-            Text("Enter a direct download link to a decrypted tvOS IPA.").foregroundStyle(.secondary)
+            Text("Enter a direct download link to a decrypted tvOS IPA, or a ZIP containing one IPA.").foregroundStyle(.secondary)
             TextField("https://example.com/app.ipa", text: $url)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
             Button("Download and Install", systemImage: "arrow.down.to.line") { library.install(url) }

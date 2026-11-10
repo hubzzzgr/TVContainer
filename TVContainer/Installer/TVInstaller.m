@@ -1,4 +1,5 @@
 #import "TVInstaller.h"
+#import "TVArchive.h"
 #import "../Runtime/TVPlatform.h"
 #import "../../LiveContainer/LCMachOUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
@@ -83,12 +84,12 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
         NSURL *stage = [fm.temporaryDirectory URLByAppendingPathComponent:NSUUID.UUID.UUIDString isDirectory:YES];
         NSError *error = nil;
         [fm createDirectoryAtURL:stage withIntermediateDirectories:YES attributes:nil error:&error];
-        if (!error && extract(archive.path, stage.path, [NSProgress progressWithTotalUnitCount:0])) error = TVError(@"Unable to extract this IPA.");
-        NSArray<NSURL *> *items = [fm contentsOfDirectoryAtURL:[stage URLByAppendingPathComponent:@"Payload"] includingPropertiesForKeys:nil options:0 error:nil];
-        NSMutableArray<NSURL *> *apps = [NSMutableArray new];
-        for (NSURL *item in items) if ([item.pathExtension isEqualToString:@"app"]) [apps addObject:item];
-        if (!error && apps.count != 1) error = TVError(@"The IPA must contain exactly one app in Payload.");
-        NSURL *app = apps.firstObject ?: stage;
+        NSURL *app = error ? nil : TVExtractAppArchive(archive, stage, &error);
+        if (!app) {
+            [fm removeItemAtURL:stage error:nil];
+            completion(error ?: TVError(@"Unable to find an app in the download."));
+            return;
+        }
         NSMutableDictionary *info = [NSMutableDictionary dictionaryWithContentsOfURL:[app URLByAppendingPathComponent:@"Info.plist"]];
         NSString *executable = info[@"CFBundleExecutable"], *identifier = info[@"CFBundleIdentifier"];
         if (![executable isKindOfClass:NSString.class]) executable = nil;

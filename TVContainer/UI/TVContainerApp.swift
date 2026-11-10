@@ -8,14 +8,6 @@ struct TVContainerApp: App {
     }
 }
 
-struct TVGuest: Identifiable {
-    let id: String
-    let name: String
-    let bundleID: String
-    let version: String
-    let icon: UIImage?
-}
-
 struct TVFailure: LocalizedError {
     let message: String
     init(_ message: String) { self.message = message }

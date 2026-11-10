@@ -15,7 +15,7 @@ On a Mac with Xcode and XcodeGen:
 ```sh
 brew install xcodegen
 git submodule update --init --recursive
-xcodegen generate
+bash scripts/generate_project.sh
 xcodebuild archive -project TVContainer.xcodeproj -scheme TVContainer \
   -sdk appletvos -destination 'generic/platform=tvOS' \
   -configuration Release -archivePath build/TVContainer.xcarchive \
@@ -35,6 +35,7 @@ private dyld hooks or the system relaunch API; test on a provisioned Apple TV.
 1. Open Settings and enter a direct P12 certificate download URL and its password.
    The identity is validated and saved in the device Keychain.
 2. Open Install from URL and enter a direct download link to a decrypted tvOS IPA.
+   ZIP downloads containing one IPA are also supported, including `.ipa.zip`.
 3. Select an app card, then Launch, or press Play/Pause in the details screen.
 4. Inside a guest, hold Play/Pause for two seconds to request a return to the library.
 

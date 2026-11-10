@@ -18,6 +18,9 @@ assert info['CFBundleDisplayName'] == 'TVContainer'
 assert info['CFBundleExecutable'] == 'TVContainer'
 assert info['CFBundleSupportedPlatforms'] == ['AppleTVOS']
 assert info['UIDeviceFamily'] == [3]
+icons = info.get('CFBundleIcons', info.get('CFBundleIcons~appletv', {}))
+assert icons.get('CFBundlePrimaryIcon'), 'Missing Apple TV Home Screen icon metadata'
+assert list(app.glob('*.car')) or list(app.glob('*.lsr')), 'Missing compiled icon artwork'
 for path in app.rglob('*'):
     assert 'sidestore' not in path.name.lower(), path
     assert path.suffix != '.appex', path
