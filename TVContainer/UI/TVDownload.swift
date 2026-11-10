@@ -1,18 +1,30 @@
 import Foundation
 
+struct TVFailure: LocalizedError {
+    let message: String
+    init(_ message: String) { self.message = message }
+    var errorDescription: String? { message }
+}
+
 // Stream to disk and enforce limits during transfer, including chunked responses.
 final class TVDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private let limit: Int64
+    private let progress: @Sendable (TVDownloadProgress) -> Void
+    private var lastProgressTime: TimeInterval = 0
     private var continuation: CheckedContinuation<URL, Error>?
     private var failure: Error?
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
     private let lock = NSLock()
     private var cancelled = false
-    private init(limit: Int64) { self.limit = limit }
+    private init(limit: Int64, progress: @escaping @Sendable (TVDownloadProgress) -> Void) {
+        self.limit = limit
+        self.progress = progress
+    }
 
-    static func fetch(_ url: URL, limit: Int64) async throws -> URL {
-        let download = TVDownload(limit: limit)
+    static func fetch(_ url: URL, limit: Int64,
+                      progress: @escaping @Sendable (TVDownloadProgress) -> Void = { _ in }) async throws -> URL {
+        let download = TVDownload(limit: limit, progress: progress)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { download.begin(url, continuation: $0) }
         } onCancel: { download.cancel() }
@@ -42,6 +54,12 @@ final class TVDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         if totalBytesWritten > limit || totalBytesExpectedToWrite > limit {
             failure = TVFailure("The download exceeds the allowed size.")
             downloadTask.cancel()
+            return
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastProgressTime >= 0.1 || totalBytesWritten == totalBytesExpectedToWrite {
+            lastProgressTime = now
+            progress(TVDownloadProgress(received: totalBytesWritten, total: totalBytesExpectedToWrite))
         }
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
@@ -52,6 +70,7 @@ final class TVDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
             }
             let size = try location.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
             guard size > 0, Int64(size) <= limit else { throw TVFailure("The downloaded file is empty or too large.") }
+            progress(TVDownloadProgress(received: Int64(size), total: downloadTask.response?.expectedContentLength))
             let saved = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try FileManager.default.moveItem(at: location, to: saved)
             continuation?.resume(returning: saved)

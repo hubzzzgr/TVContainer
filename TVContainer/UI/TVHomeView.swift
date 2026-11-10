@@ -35,7 +35,7 @@ struct TVAppsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("TVContainer").font(.largeTitle.bold())
-                            Text("Your apps, on the big screen.").foregroundStyle(.secondary)
+                            Text("LiveContainer port for Apple TV").foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text("\(library.apps.count) apps").foregroundStyle(.secondary)
@@ -106,10 +106,15 @@ struct TVOperationStatus: View {
     @EnvironmentObject private var library: TVLibrary
     var body: some View {
         if !library.status.isEmpty {
-            HStack(spacing: 24) {
-                if library.busy { ProgressView() }
-                Text(library.status).foregroundStyle(.secondary)
-                if library.downloading { Button("Cancel Download") { library.cancelDownload() } }
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(spacing: 24) {
+                    if library.busy && !library.downloading { ProgressView() }
+                    Text(library.status).foregroundStyle(.secondary)
+                    if library.downloading { Button("Cancel Download") { library.cancelDownload() } }
+                }
+                if library.downloading {
+                    TVDownloadProgressView(progress: library.downloadProgress)
+                }
             }
         }
     }
@@ -141,36 +146,43 @@ struct TVSettingsView: View {
     @State private var password = ""
     @State private var confirmRemove = false
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
-                Text("Settings").font(.largeTitle.bold())
-                Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
-                      systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "key")
-                    .foregroundStyle(library.certificateInstalled ? .green : .orange)
-                Text("Import Certificate from URL").font(.title2.bold())
-                Text("Use a P12 signing identity from the same developer team used to sign TVContainer. The certificate and password are stored in this Apple TV’s Keychain.").foregroundStyle(.secondary)
-                TextField("https://example.com/certificate.p12", text: $certificateURL)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
-                SecureField("Certificate password (may be empty)", text: $password).disabled(library.busy)
-                HStack(spacing: 36) {
-                    Button("Download Certificate", systemImage: "key.fill") {
-                        library.importCertificate(certificateURL, password: password)
-                        password = ""
-                    }.disabled(library.busy || certificateURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if library.certificateInstalled {
-                        Button("Remove Certificate", role: .destructive) { confirmRemove = true }.disabled(library.busy)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 30) {
+                    Text("Settings").font(.largeTitle.bold())
+                    Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
+                          systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "key")
+                        .foregroundStyle(library.certificateInstalled ? .green : .orange)
+                    Text("Import Certificate from URL").font(.title2.bold())
+                    Text("Use a P12 signing identity from the same developer team used to sign TVContainer. The certificate and password are stored in this Apple TV’s Keychain.").foregroundStyle(.secondary)
+                    TextField("https://example.com/certificate.p12", text: $certificateURL)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
+                    SecureField("Certificate password (may be empty)", text: $password).disabled(library.busy)
+                    HStack(spacing: 36) {
+                        Button("Download Certificate", systemImage: "key.fill") {
+                            library.importCertificate(certificateURL, password: password)
+                            password = ""
+                        }.disabled(library.busy || certificateURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        if library.certificateInstalled {
+                            Button("Remove Certificate", role: .destructive) { confirmRemove = true }.disabled(library.busy)
+                        }
                     }
-                }
-                TVOperationStatus()
-                Divider().padding(.vertical)
-                Text("Local Storage").font(.title2.bold())
-                Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
-                Text("TVContainer · Standalone · tvOS 17+").font(.caption).foregroundStyle(.secondary)
-            }.padding(80).frame(maxWidth: 1400, alignment: .leading)
+                    TVOperationStatus()
+                    NavigationLink {
+                        TVWorthCheckingOutView()
+                    } label: {
+                        Label("Worth checking out", systemImage: "qrcode")
+                    }
+                    Divider().padding(.vertical)
+                    Text("Local Storage").font(.title2.bold())
+                    Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
+                    Text("TVContainer · Standalone · tvOS 17+").font(.caption).foregroundStyle(.secondary)
+                }.padding(80).frame(maxWidth: 1400, alignment: .leading)
+            }
+            .alert("Remove signing certificate?", isPresented: $confirmRemove) {
+                Button("Remove", role: .destructive) { library.removeCertificate() }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("Import it again before installing or signing more apps.") }
         }
-        .alert("Remove signing certificate?", isPresented: $confirmRemove) {
-            Button("Remove", role: .destructive) { library.removeCertificate() }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("Import it again before installing or signing more apps.") }
     }
 }

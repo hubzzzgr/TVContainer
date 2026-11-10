@@ -13,6 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  download-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test download progress, byte totals, errors, and cancellation
+        run: bash tests/test_downloads.sh
+
   build:
     runs-on: macos-15
     timeout-minutes: 45
@@ -27,6 +34,10 @@ jobs:
         run: brew install xcodegen
       - name: Generate standalone tvOS project
         run: bash scripts/generate_project.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TVContainer-icon-preview
+          path: build/TVContainerAssets.xcassets/App Icon & Top Shelf Image.brandassets/App Icon - Small.imagestack/Front.imagestacklayer/Content.imageset/Layer@2x.png
       - name: Archive Apple TV app
         run: |
           set -o pipefail
@@ -84,7 +95,7 @@ jobs:
           xcode-version: latest-stable
       - run: brew install xcodegen
       - run: bash scripts/generate_project.sh
-      - name: Test guest PNG, catalog, and layered artwork on tvOS
+      - name: Test artwork, progress layout, and QR destinations on tvOS
         run: bash tests/test_tv_icons.sh
       - name: Export card previews
         if: always()

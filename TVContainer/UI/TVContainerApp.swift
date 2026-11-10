@@ -8,21 +8,17 @@ struct TVContainerApp: App {
     }
 }
 
-struct TVFailure: LocalizedError {
-    let message: String
-    init(_ message: String) { self.message = message }
-    var errorDescription: String? { message }
-}
-
 @MainActor
 final class TVLibrary: ObservableObject {
     @Published var apps: [TVGuest] = []
     @Published var status = ""
     @Published var busy = false
     @Published var downloading = false
+    @Published var downloadProgress = TVDownloadProgress()
     @Published var error: String?
     @Published var certificateInstalled = TVInstaller.hasCertificate()
     private var operation: Task<Void, Never>?
+    private var activeDownloadID: UUID?
 
     init() {
         reload()
@@ -64,11 +60,9 @@ final class TVLibrary: ObservableObject {
             let url = try Self.remoteURL(input)
             guard self.certificateInstalled else { throw TVFailure("Import your signing certificate in Settings first.") }
             self.status = "Downloading app…"
-            self.downloading = true
-            let file = try await TVDownload.fetch(url, limit: 2 * 1024 * 1024 * 1024)
+            let file = try await self.download(url, limit: 2 * 1024 * 1024 * 1024)
             defer { try? FileManager.default.removeItem(at: file) }
             try Task.checkCancellation()
-            self.downloading = false
             self.status = "Preparing and signing app…"
             UserDefaults.standard.set(true, forKey: "SigningInProgress")
             defer { UserDefaults.standard.removeObject(forKey: "SigningInProgress") }
@@ -87,11 +81,9 @@ final class TVLibrary: ObservableObject {
         start {
             let url = try Self.remoteURL(input)
             self.status = "Downloading certificate…"
-            self.downloading = true
-            let file = try await TVDownload.fetch(url, limit: 4 * 1024 * 1024)
+            let file = try await self.download(url, limit: 4 * 1024 * 1024)
             defer { try? FileManager.default.removeItem(at: file) }
             try Task.checkCancellation()
-            self.downloading = false
             let data = try Data(contentsOf: file)
             try TVInstaller.importCertificate(data, password: password)
             self.reload()
@@ -117,6 +109,20 @@ final class TVLibrary: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
     func cancelDownload() { if downloading { operation?.cancel() } }
+
+    private func download(_ url: URL, limit: Int64) async throws -> URL {
+        let id = UUID()
+        activeDownloadID = id
+        downloadProgress = TVDownloadProgress()
+        downloading = true
+        defer { downloading = false; activeDownloadID = nil }
+        return try await TVDownload.fetch(url, limit: limit) { [weak self] update in
+            Task { @MainActor in
+                guard let self, self.activeDownloadID == id, self.downloading else { return }
+                self.downloadProgress = update
+            }
+        }
+    }
     private func start(_ work: @escaping @MainActor () async throws -> Void) {
         guard !busy else { return }
         busy = true

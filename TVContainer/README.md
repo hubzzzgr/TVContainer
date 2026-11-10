@@ -30,6 +30,12 @@ keychain groups. The host and imported P12 signing identity must use the same
 developer team. A successful build does not establish device compatibility of
 private dyld hooks or the system relaunch API; test on a provisioned Apple TV.
 
+The supplied TVContainer artwork is kept in `TVContainer/Artwork/TVContainerIcon.jpg`.
+The project generator exports its layered Apple TV icon and Top Shelf renditions.
+App and certificate downloads display byte progress with fixed-width tabular
+counters; servers without a content length show an indeterminate bar. Settings
+also links to a two-column project page with scannable GitHub QR codes.
+
 ## Use
 
 1. Open Settings and enter a direct P12 certificate download URL and its password.

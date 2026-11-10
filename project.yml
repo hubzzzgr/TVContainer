@@ -36,8 +36,8 @@ targets:
       properties:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
-        CFBundleShortVersionString: '1.0.2'
-        CFBundleVersion: '3'
+        CFBundleShortVersionString: '1.0.3'
+        CFBundleVersion: '4'
         CFBundleURLTypes:
           - CFBundleURLName: com.kdt.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -139,11 +139,15 @@ targets:
     platform: tvOS
     sources:
       - tests/TVGuestIconTests.swift
+      - tests/TVInterfaceTests.swift
       - tests/icon_installer_stub.m
       - tests/IconFixtures.xcassets
       - TVContainer/UI/TVGuestIcon.swift
       - TVContainer/UI/TVGuest.swift
       - TVContainer/UI/TVGuestCard.swift
+      - TVContainer/UI/TVWorthCheckingOutView.swift
+      - TVContainer/UI/TVDownloadProgress.swift
+      - TVContainer/UI/TVDownloadProgressView.swift
       - TVContainer/Installer/TVIconCatalog.m
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.icon-tests
