@@ -39,6 +39,7 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
     flags |= ARCHIVE_EXTRACT_PERM;
     flags |= ARCHIVE_EXTRACT_ACL;
     flags |= ARCHIVE_EXTRACT_FFLAGS;
+    flags |= ARCHIVE_EXTRACT_SECURE_SYMLINKS;
 
     // Calculate decompressed size
     a = archive_read_new();
@@ -56,7 +57,14 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
             archive_read_free(a);
             return 1;
         }
-        progress.totalUnitCount += archive_entry_size(entry);
+        la_int64_t size = archive_entry_size(entry);
+        // Bound expansion of downloaded archives and reject unexpected links.
+        if (size < 0 || size > 8LL * 1024 * 1024 * 1024 - progress.totalUnitCount ||
+            archive_entry_symlink(entry) || archive_entry_hardlink(entry)) {
+            archive_read_free(a);
+            return 1;
+        }
+        progress.totalUnitCount += size;
     }
     archive_read_close(a);
     archive_read_free(a);
@@ -73,39 +81,56 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
     archive_write_disk_set_options(ext, flags);
     archive_write_disk_set_standard_lookup(ext);
 
+    BOOL failed = NO;
     while ((r = archive_read_next_header(a, &entry)) != ARCHIVE_EOF) {
         if (r == ARCHIVE_EOF)
             break;
         if (r < ARCHIVE_OK)
             fprintf(stderr, "%s\n", archive_error_string(a));
-        if (r < ARCHIVE_WARN)
+        if (r < ARCHIVE_WARN) {
+            failed = YES;
             break;
+        }
         
         NSString* currentFile = [NSString stringWithUTF8String:archive_entry_pathname(entry)];
-        NSString* fullOutputPath = [extractionPath stringByAppendingPathComponent:currentFile];
+        NSString *root = extractionPath.stringByStandardizingPath;
+        NSString* fullOutputPath = [root stringByAppendingPathComponent:currentFile].stringByStandardizingPath;
+        if (!currentFile.length || currentFile.isAbsolutePath || [currentFile.pathComponents containsObject:@".."] ||
+            ![fullOutputPath hasPrefix:[root stringByAppendingString:@"/"]] ||
+            archive_entry_symlink(entry) || archive_entry_hardlink(entry)) {
+            failed = YES;
+            break;
+        }
         //printf("extracting %@ to %@\n", currentFile, fullOutputPath);
         archive_entry_set_pathname(entry, fullOutputPath.fileSystemRepresentation);
         
         r = archive_write_header(ext, entry);
-        if (r < ARCHIVE_OK)
+        if (r < ARCHIVE_OK) {
             fprintf(stderr, "%s\n", archive_error_string(ext));
+            failed = YES;
+            break;
+        }
         else if (archive_entry_size(entry) > 0) {
             r = copy_data(a, ext, progress);
             if (r < ARCHIVE_OK)
                 fprintf(stderr, "%s\n", archive_error_string(ext));
-            if (r < ARCHIVE_WARN)
+            if (r < ARCHIVE_WARN) {
+                failed = YES;
                 break;
+            }
         }
         r = archive_write_finish_entry(ext);
         if (r < ARCHIVE_OK)
             fprintf(stderr, "%s\n", archive_error_string(ext));
-        if (r < ARCHIVE_WARN)
+        if (r < ARCHIVE_WARN) {
+            failed = YES;
             break;
+        }
     }
     archive_read_close(a);
     archive_read_free(a);
     archive_write_close(ext);
     archive_write_free(ext);
     
-    return 0;
+    return failed || r != ARCHIVE_EOF ? 1 : 0;
 }

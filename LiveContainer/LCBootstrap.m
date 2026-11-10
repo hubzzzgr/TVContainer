@@ -8,6 +8,9 @@
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_images.h>
 #include <objc/runtime.h>
+#if TARGET_OS_TV
+#import "../TVContainer/Runtime/TVPlatform.h"
+#endif
 
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -39,8 +42,12 @@ bool sideStoreExist = false;
     return lcUserDefaults;
 }
 + (instancetype)lcSharedDefaults {
-    if(!lcUserDefaults) {
+    if(!lcSharedDefaults) {
+#if TARGET_OS_TV
+        lcSharedDefaults = lcUserDefaults ?: NSUserDefaults.standardUserDefaults;
+#else
         lcSharedDefaults = [[NSUserDefaults alloc] initWithSuiteName: [LCSharedUtils appGroupID]];
+#endif
     }
     return lcSharedDefaults;
 }
@@ -112,7 +119,7 @@ void overwriteMainCFBundle(void) {
     void **mainBundleAddr = 0;
     
 #if !TARGET_OS_SIMULATOR
-    if(@available(iOS 27.0, *)) {
+    if(@available(iOS 27.0, tvOS 27.0, *)) {
         // at least in iOS 27.0 db1, the logic is inversed and the __mainBundle is right after the first tbz instruction
         while (true) {
             bool isTbz = ((*pc) & 0x7F000000) == 0x36000000;
@@ -209,7 +216,7 @@ int hook__NSGetExecutablePath_overwriteExecPath(DyldAPI* dyldApiInstancePtr, cha
     *mainExecutablePathPtr = newPath;
     
     // in iOS 27, the length is also cached, it's at +0x28
-    if(@available(iOS 27.0, *)) {
+    if(@available(iOS 27.0, tvOS 27.0, *)) {
         dyldConfig->mainExecutablePathLen_27_0 = strlen(newPath);
     }
     
@@ -302,7 +309,7 @@ NSString *LCPrepareGuestExtension(NSDictionary *request) {
         handle = dlopen_nolock(bundle.executablePath.fileSystemRepresentation, RTLD_LAZY | RTLD_GLOBAL | RTLD_FIRST);
     };
     NSDictionary *patchInfo = [NSDictionary dictionaryWithContentsOfFile:[bundlePath stringByAppendingPathComponent:@"LCAppExtension.plist"]];
-    if (@available(iOS 27.0, *)) {
+    if (@available(iOS 27.0, tvOS 27.0, *)) {
         if ([patchInfo[@"segCountMismatch"] boolValue]) bypass_seg_count_check(load);
         else load();
     } else {
@@ -323,8 +330,8 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     if (!LCSharedUtils.certificatePassword && !isSideStore) {
 #if !TARGET_OS_SIMULATOR
-        if(@available(iOS 26.0 ,*))  {
-            return @"JITLess mode is required since iOS 26. Please set it up in settings. \nPlease go to LiveContainer settings -> tap \"Import Certificate from SideStore\" / \"Import Certificate\"";
+        if(@available(iOS 26.0, tvOS 26.0, *))  {
+            return @"A signing certificate is required. Open TVContainer Settings and import your certificate from a URL.";
         }
 #endif
         // First of all, let's check if we have JIT
@@ -646,7 +653,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     };
     
     BOOL is27up = false;
-    if(@available(iOS 27, *)) { is27up = true; }
+    if(@available(iOS 27, tvOS 27, *)) { is27up = true; }
     if(is27up && [guestAppInfo[@"segCountMismatch"] boolValue]) {
         bypass_seg_count_check(dlopenBlock);
     } else {
@@ -742,6 +749,12 @@ int LiveContainerMain(int argc, char *argv[]) {
     lcAppGroupPath = [[NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[NSClassFromString(@"LCSharedUtils") appGroupID]] path];
     isLiveProcess = [lcAppUrlScheme isEqualToString:@"liveprocess"];
     setenv("LC_HOME_PATH", getenv("HOME"), 0);
+#if TARGET_OS_TV
+    setenv("LC_HOST_HOME_PATH", getenv("HOME"), 1);
+    setenv("LC_HOME_PATH", TVStorageRoot().path.fileSystemRepresentation, 1);
+    lcSharedDefaults = lcUserDefaults;
+    lcAppGroupPath = LCSharedUtils.appGroupPath.path;
+#endif
 
     NSString *selectedApp = [lcUserDefaults stringForKey:@"selected"];
     NSString *selectedContainer = [lcUserDefaults stringForKey:@"selectedContainer"];

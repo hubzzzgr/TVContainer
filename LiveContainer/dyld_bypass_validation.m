@@ -108,7 +108,7 @@ void init_bypassDyldLibValidation(void) {
     if (bypassed) return;
     bypassed = YES;
     // supporting this on 26 requires other apps to use universal JIT script, sadly not the case now
-    if (@available(iOS 19.0, *)) return;
+    if (@available(iOS 19.0, tvOS 19.0, *)) return;
 
     NSLog(@"[DyldLVBypass] init");
     

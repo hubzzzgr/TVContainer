@@ -1,0 +1,137 @@
+name: TVContainer
+options:
+  deploymentTarget:
+    tvOS: '17.0'
+  createIntermediateGroups: true
+settings:
+  base:
+    SDKROOT: appletvos
+    SUPPORTED_PLATFORMS: appletvos appletvsimulator
+    TARGETED_DEVICE_FAMILY: '3'
+    TVOS_DEPLOYMENT_TARGET: '17.0'
+    ARCHS: arm64
+    CLANG_ENABLE_MODULES: YES
+    CLANG_ENABLE_OBJC_ARC: YES
+    CLANG_CXX_LANGUAGE_STANDARD: gnu++20
+    GCC_C_LANGUAGE_STANDARD: gnu17
+    SWIFT_VERSION: '5.0'
+    CODE_SIGNING_ALLOWED: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    HEADER_SEARCH_PATHS:
+      - $(SRCROOT)/LiveContainer
+      - $(SRCROOT)/LiveContainerSwiftUI/Utilities
+      - $(SRCROOT)/litehook/src
+      - $(SRCROOT)/litehook/external/include
+      - $(SRCROOT)/ZSign/common
+    LD_RUNPATH_SEARCH_PATHS: ['$(inherited)', '@executable_path/Frameworks', '@loader_path/..']
+targets:
+  TVContainer:
+    type: application
+    platform: tvOS
+    sources:
+      - path: LiveContainer/main.c
+    info:
+      path: TVContainer/Info.plist
+      properties:
+        CFBundleDisplayName: TVContainer
+        CFBundleName: TVContainer
+        CFBundleShortVersionString: '1.0'
+        CFBundleVersion: '1'
+        CFBundleURLTypes:
+          - CFBundleURLName: com.kdt.tvcontainer.urlscheme
+            CFBundleURLSchemes: [tvcontainer]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        GCSupportsControllerUserInteraction: true
+        NSLocalNetworkUsageDescription: Download apps and certificates from your local network.
+        NSMicrophoneUsageDescription: A guest app is requesting microphone access.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer
+      OTHER_LDFLAGS: ['-e', '_LiveContainerMainC']
+      ENABLE_DEBUG_DYLIB: NO
+      CODE_SIGN_ENTITLEMENTS: TVContainer/TVContainer.entitlements
+    dependencies:
+      - target: LiveContainerShared
+        link: false
+        embed: true
+      - target: LiveContainerSwiftUI
+        link: false
+        embed: true
+      - target: ZSign
+        link: false
+        embed: true
+      - target: TweakLoader
+        link: false
+        embed: true
+      - framework: OpenSSL/Frameworks/OpenSSL.xcframework
+        link: false
+        embed: true
+  LiveContainerShared:
+    type: framework
+    platform: tvOS
+    sources:
+      - path: LiveContainer
+        excludes: [main.c, Info.plist, LCMachOUtils.m]
+      - path: LiveContainer/LCMachOUtils.m
+      - path: TVContainer/Runtime
+      - path: litehook/src/litehook.c
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.runtime
+      GENERATE_INFOPLIST_FILE: YES
+      SKIP_INSTALL: YES
+      OTHER_CFLAGS: ['$(inherited)', '-fcommon']
+    dependencies:
+      - sdk: UIKit.framework
+      - sdk: Security.framework
+  LiveContainerSwiftUI:
+    type: framework
+    platform: tvOS
+    sources:
+      - path: TVContainer/UI
+      - path: TVContainer/Installer
+      - path: LiveContainerSwiftUI/Utilities/unarchive.m
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.ui
+      GENERATE_INFOPLIST_FILE: YES
+      SKIP_INSTALL: YES
+      SWIFT_OBJC_BRIDGING_HEADER: TVContainer/Installer/TVContainer-Bridging-Header.h
+      SWIFT_INSTALL_OBJC_HEADER: NO
+    dependencies:
+      - target: LiveContainerShared
+      - target: ZSign
+      - sdk: libarchive.tbd
+  ZSign:
+    type: library.dynamic
+    platform: tvOS
+    sources: [ZSign]
+    settings:
+      PRODUCT_NAME: ZSign
+      EXECUTABLE_PREFIX: ''
+      SKIP_INSTALL: YES
+    dependencies:
+      - framework: OpenSSL/Frameworks/OpenSSL.xcframework
+        embed: false
+  TweakLoader:
+    type: library.dynamic
+    platform: tvOS
+    sources: [TVContainer/Guest]
+    settings:
+      PRODUCT_NAME: TweakLoader
+      EXECUTABLE_PREFIX: ''
+      SKIP_INSTALL: YES
+    dependencies:
+      - target: LiveContainerShared
+      - sdk: UIKit.framework
+schemes:
+  TVContainer:
+    build:
+      targets:
+        TVContainer: all
+    run:
+      config: Debug
+    archive:
+      config: Release

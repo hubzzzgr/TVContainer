@@ -3,6 +3,9 @@
 #import "UIKitPrivate.h"
 #import "utils.h"
 @import MachO;
+#if TARGET_OS_TV
+#import "../TVContainer/Runtime/TVPlatform.h"
+#endif
 
 extern NSUserDefaults *lcUserDefaults;
 extern NSString *lcAppUrlScheme;
@@ -21,7 +24,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         void* taskSelf = SecTaskCreateFromSelf(NULL);
         CFErrorRef error = NULL;
         CFTypeRef cfans = SecTaskCopyValueForEntitlement(taskSelf, CFSTR("com.apple.developer.team-identifier"), &error);
-        if(CFGetTypeID(cfans) == CFStringGetTypeID()) {
+        if(cfans && CFGetTypeID(cfans) == CFStringGetTypeID()) {
             ans = (__bridge NSString*)cfans;
         }
         CFRelease(taskSelf);
@@ -54,6 +57,10 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSString *)appGroupID {
+#if TARGET_OS_TV
+    // Standalone Apple TV builds do not borrow a SideStore/AltStore app group.
+    return @"com.kdt.tvcontainer.private";
+#else
     static dispatch_once_t once;
     static NSString *appGroupID = @"Unknown";
     dispatch_once(&once, ^{
@@ -107,23 +114,43 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         }
     });
     return appGroupID;
+#endif
 }
 
 + (NSURL*) appGroupPath {
+#if TARGET_OS_TV
+    NSURL *path = [TVStorageRoot() URLByAppendingPathComponent:@"Shared" isDirectory:YES];
+    [NSFileManager.defaultManager createDirectoryAtURL:path withIntermediateDirectories:YES attributes:nil error:nil];
+    return path;
+#else
     static NSURL *appGroupPath = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
     });
     return appGroupPath;
+#endif
 }
 
 + (NSString *)certificatePassword {
+#if TARGET_OS_TV
+    return TVReadSigningIdentity()[@"password"];
+#else
     NSUserDefaults* nud = NSUserDefaults.lcSharedDefaults ?: NSUserDefaults.standardUserDefaults;
     return [nud objectForKey:@"LCCertificatePassword"];
+#endif
 }
 
 + (BOOL)launchToGuestAppWithClassicMode:(NSUInteger)classicMode {
+#if TARGET_OS_TV
+    return TVRelaunch(^(NSError *error) {
+        if (error) {
+            [lcUserDefaults removeObjectForKey:@"selected"];
+            [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+            [lcUserDefaults setObject:error.localizedDescription forKey:@"error"];
+        }
+    });
+#else
     void (^completionHandler)(BOOL) = ^(BOOL success) {
         // syscall(SYS_ptrace, PT_DENY_ATTACH, 0, 0, 0);
         __asm__ __volatile__ (
@@ -167,6 +194,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         }];
     }
     return YES;
+#endif
 }
 
 + (BOOL)launchToGuestAppWithURL:(NSURL *)url {

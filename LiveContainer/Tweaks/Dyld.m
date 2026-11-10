@@ -283,7 +283,7 @@ bool initGuestSDKVersionInfo(void) {
         const char* dyldPath = "/usr/lib/dyld_sim";
 #endif
         uint64_t offset = 0;
-        if(@available(iOS 27.0, *)) {
+        if(@available(iOS 27.0, tvOS 27.0, *)) {
             offset = LCFindSymbolOffset(dyldPath, "__ZN5dyld311sVersionMapE");
         } else {
             offset = LCFindSymbolOffset(dyldPath, "__ZN5dyld3L11sVersionMapE");
@@ -469,7 +469,7 @@ void *dlopen_nolock(const char *path, int mode) {
     void **unlockPtr = getCachedSymbol(unlockPtrName, libdyldHeader);
     void **trylockPtr = 0;
     bool shouldPatchTrylock = false;
-    if(@available(iOS 26.5, *)) {
+    if(@available(iOS 26.5, tvOS 26.5, *)) {
         shouldPatchTrylock = true;
         trylockPtr = getCachedSymbol(tryLockPtrName, libdyldHeader);
     }
