@@ -10,3 +10,4 @@ apps_nightly.json
 TVContainer.xcodeproj/
 build/
 build.log
+icon-tests.log

@@ -14,7 +14,7 @@ static CFBundleRef TVMainCFBundle(void) { return guestCFBundle; }
 static void updateCFCacheIfAvailable(CFBundleRef original, CFBundleRef replacement) {
     // Shared-cache symbols may be absent on a device. Never infer this address
     // from adjacent TBZ/TBNZ/ADRP instructions, or write an unvalidated pointer.
-#if defined(TV_BUNDLE_TEST_NO_CACHE)
+#if TV_BUNDLE_TEST_NO_CACHE
     void *slot = NULL;
 #else
     void *slot = litehook_find_dsc_symbol("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", "__mainBundle");

@@ -132,6 +132,21 @@ targets:
     dependencies:
       - target: LiveContainerShared
       - sdk: UIKit.framework
+  TVGuestIconTests:
+    type: bundle.unit-test
+    platform: tvOS
+    sources:
+      - tests/TVGuestIconTests.swift
+      - tests/icon_installer_stub.m
+      - tests/IconFixtures.xcassets
+      - TVContainer/UI/TVGuestIcon.swift
+      - TVContainer/Installer/TVIconCatalog.m
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.icon-tests
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_OBJC_BRIDGING_HEADER: TVContainer/Installer/TVContainer-Bridging-Header.h
+    dependencies:
+      - sdk: UIKit.framework
 schemes:
   TVContainer:
     build:
@@ -141,3 +156,9 @@ schemes:
       config: Debug
     archive:
       config: Release
+  TVContainerIconTests:
+    build:
+      targets:
+        TVGuestIconTests: all
+    test:
+      targets: [TVGuestIconTests]

@@ -8,7 +8,7 @@ for phase in Before After; do
     -install_name "@rpath/Probe$phase.dylib" -o "build/Probe$phase.dylib"
 done
 for mode in fallback cache; do
-  definitions=()
+  definitions=(-DTV_BUNDLE_TEST_NO_CACHE=0)
   if [ "$mode" = fallback ]; then definitions=(-DTV_BUNDLE_TEST_NO_CACHE=1); fi
   xcrun clang -fobjc-arc -framework Foundation "${includes[@]}" "${definitions[@]}" \
     tests/bundle_harness.m TVContainer/Runtime/TVGuestBundle.m litehook/src/litehook.c \
