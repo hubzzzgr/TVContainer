@@ -1,5 +1,5 @@
 // Decode the actual tvOS-rendered page, rather than relying on Vision's
-// simulator barcode implementation. jsQR is vendored with its MIT license.
+// simulator barcode implementation. jsQR is vendored with its Apache 2.0 license.
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const jsQR = require('./vendor/jsQR.cjs');
