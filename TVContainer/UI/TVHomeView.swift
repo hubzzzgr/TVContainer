@@ -139,4 +139,3 @@ struct TVInstallView: View {
         }.padding(80).frame(maxWidth: 1400, maxHeight: .infinity, alignment: .topLeading)
     }
 }
-

@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
-#import "../../LiveContainer/LCSharedUtils.h"
 #import "../../LiveContainer/utils.h"
+#import "../Runtime/TVPlatform.h"
 
 // Preserve native guest focus and Back/Select behavior. Only a long Play/Pause
 // press returns to the library; UIKit routes normal presses to the guest.
@@ -21,7 +21,16 @@
     [NSUserDefaults.lcUserDefaults setObject:@"ui" forKey:@"selected"];
     [NSUserDefaults.lcUserDefaults removeObjectForKey:@"selectedContainer"];
     [NSUserDefaults.lcUserDefaults synchronize];
-    [LCSharedUtils launchToGuestAppWithClassicMode:0];
+    TVRelaunch(^(NSError *error) {
+        [NSUserDefaults.lcUserDefaults removeObjectForKey:@"selected"];
+        [NSUserDefaults.lcUserDefaults synchronize];
+        UIViewController *presenter = gesture.view.window.rootViewController;
+        while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"TVContainer"
+            message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [presenter presentViewController:alert animated:YES completion:nil];
+    });
 }
 @end
 static void addReturnGesture(UIWindow *window) {
