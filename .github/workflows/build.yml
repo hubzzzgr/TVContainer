@@ -103,6 +103,10 @@ jobs:
           if [ -d build/IconTests.xcresult ]; then
             xcrun xcresulttool export attachments --path build/IconTests.xcresult --output-path build/card-previews
           fi
+      - name: Decode both QR destinations from rendered page
+        run: |
+          swift tests/export_qr_pixels.swift build/card-previews build/recommendations.rgba
+          node tests/check_qr_codes.cjs build/recommendations.rgba
       - uses: actions/upload-artifact@v4
         if: always()
         with:
