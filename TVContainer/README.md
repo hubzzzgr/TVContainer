@@ -28,16 +28,15 @@ GitHub Actions runs archive extraction tests and builds only the standalone
 provisioning profile for your device, preserving `get-task-allow` and the supplied
 keychain groups. The host and imported P12 signing identity must use the same
 developer team. A successful build does not establish device compatibility of
-private dyld hooks or in-place process replacement; test on a provisioned Apple TV.
+private dyld hooks or the system relaunch API; test on a provisioned Apple TV.
 
 The supplied TVContainer artwork is kept in `TVContainer/Artwork/TVContainerIcon.jpg`.
 The project generator exports its layered Apple TV icon and Top Shelf renditions.
-App and certificate downloads display progress with fixed-width tabular counters
-in B, KB, MB, GB, or larger units. Known-length downloads use the total size to
-choose one unit for the entire transfer; servers without a content length show
-an indeterminate bar. A separate Settings section below the certificate controls
-links to a two-column project page with scannable GitHub QR codes. Its list row
-remains reachable with the remote when the certificate buttons are disabled.
+App and certificate downloads display progress in B, KB, MB, GB, or larger units
+with fixed-width tabular counters. Known-length downloads keep the unit selected
+from the total size; servers without a content length show an indeterminate bar.
+The small QR button beside Search apps opens a two-column project page with
+scannable GitHub QR codes. Use the remote's Back button to return to Apps.
 
 ## Use
 
@@ -76,14 +75,9 @@ supported in the initial standalone tvOS target.
 
 The iOS LiveProcess mmap workaround and chained-fixup exception workaround use
 Mach APIs unavailable on tvOS and are excluded. Apps needing that chained-fixup
-workaround are rejected with an explanation. Launching and returning from a guest
-use `posix_spawn` with `POSIX_SPAWN_SETEXEC` to replace TVContainer's executable
-in its existing PID, instead of opening the already-running app and then killing
-it. The original host executable, arguments, environment, and working directory
-are captured before guest setup and restored on replacement. If tvOS rejects
-replacement, the current app stays open and reports the system error. Simulator
-coverage cannot establish whether a provisioned physical Apple TV permits this
-private operation; verify both launch and return on the device.
+workaround are rejected with an explanation. The launcher checks both known
+system relaunch selectors and leaves the selected guest queued for a manual
+close/reopen if the system does not permit automatic relaunch.
 
 tvOS permits purgeable local cache storage. Apps and containers live under
 `Library/Caches/TVContainer/Documents`; they can be removed by tvOS when storage

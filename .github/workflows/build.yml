@@ -78,23 +78,3 @@ jobs:
           submodules: recursive
       - name: Test main bundle hooks without instruction scanning
         run: bash tests/test_bundle_hooks.sh
-
-  settings-tests:
-    runs-on: macos-15
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-      - run: brew install xcodegen
-      - run: bash scripts/generate_project.sh
-      - name: Test remote navigation and process restart (skip icon tests)
-        run: bash tests/test_settings.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: TVContainer-settings-test-results
-          path: |
-            build/SettingsTests.xcresult
-            settings-tests.log

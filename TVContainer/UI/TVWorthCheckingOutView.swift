@@ -60,20 +60,13 @@ struct TVProjectRecommendations: View {
 }
 
 struct TVWorthCheckingOutView: View {
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
-                HStack {
-                    Text("Worth checking out").font(.largeTitle.bold())
-                    Spacer()
-                    Button("Back", systemImage: "chevron.left") { dismiss() }
-                }
+                Text("Worth checking out").font(.largeTitle.bold())
                 TVProjectRecommendations()
             }
             .padding(64)
         }
-        .onExitCommand { dismiss() }
     }
 }

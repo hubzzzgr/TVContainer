@@ -40,6 +40,20 @@ struct TVAppsView: View {
                         Spacer()
                         Text("\(library.apps.count) apps").foregroundStyle(.secondary)
                     }
+                    HStack(spacing: 20) {
+                        TextField("Search apps", text: $search).frame(maxWidth: 700)
+                        NavigationLink {
+                            TVWorthCheckingOutView()
+                        } label: {
+                            Image(systemName: "qrcode")
+                                .font(.system(size: 24, weight: .medium))
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityLabel("Worth checking out")
+                        .accessibilityIdentifier("worthCheckingOut")
+                    }
                     if library.apps.isEmpty {
                         VStack(spacing: 24) {
                             Image(systemName: "appletv").font(.system(size: 80))
@@ -48,7 +62,6 @@ struct TVAppsView: View {
                                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }.frame(maxWidth: .infinity, minHeight: 360)
                     } else {
-                        TextField("Search apps", text: $search).frame(maxWidth: 700)
                         TVAppFlowLayout {
                             ForEach(filtered) { app in
                                 NavigationLink { TVAppDetailView(app: app) } label: {
@@ -87,7 +100,6 @@ struct TVAppDetailView: View {
                 Button("Launch", systemImage: "play.fill") { library.launch(app) }
                     .focused($launchFocused).disabled(library.busy)
                 Button("Delete App", systemImage: "trash", role: .destructive) { confirmDelete = true }.disabled(library.busy)
-                Button("Back") { dismiss() }
             }
             Text("Press Play/Pause to launch. Inside a guest app, hold Play/Pause for two seconds to return to TVContainer.")
                 .font(.callout).foregroundStyle(.secondary).frame(maxWidth: 1000, alignment: .leading)
@@ -137,5 +149,47 @@ struct TVInstallView: View {
             TVOperationStatus()
             Spacer()
         }.padding(80).frame(maxWidth: 1400, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+struct TVSettingsView: View {
+    @EnvironmentObject private var library: TVLibrary
+    @State private var certificateURL = ""
+    @State private var password = ""
+    @State private var confirmRemove = false
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 30) {
+                    Text("Settings").font(.largeTitle.bold())
+                    Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
+                          systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "key")
+                        .foregroundStyle(library.certificateInstalled ? .green : .orange)
+                    Text("Import Certificate from URL").font(.title2.bold())
+                    Text("Use a P12 signing identity from the same developer team used to sign TVContainer. The certificate and password are stored in this Apple TV’s Keychain.").foregroundStyle(.secondary)
+                    TextField("https://example.com/certificate.p12", text: $certificateURL)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
+                    SecureField("Certificate password (may be empty)", text: $password).disabled(library.busy)
+                    HStack(spacing: 36) {
+                        Button("Download Certificate", systemImage: "key.fill") {
+                            library.importCertificate(certificateURL, password: password)
+                            password = ""
+                        }.disabled(library.busy || certificateURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        if library.certificateInstalled {
+                            Button("Remove Certificate", role: .destructive) { confirmRemove = true }.disabled(library.busy)
+                        }
+                    }
+                    TVOperationStatus()
+                    Divider().padding(.vertical)
+                    Text("Local Storage").font(.title2.bold())
+                    Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
+                    Text("TVContainer · Standalone · tvOS 17+").font(.caption).foregroundStyle(.secondary)
+                }.padding(80).frame(maxWidth: 1400, alignment: .leading)
+            }
+            .alert("Remove signing certificate?", isPresented: $confirmRemove) {
+                Button("Remove", role: .destructive) { library.removeCertificate() }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("Import it again before installing or signing more apps.") }
+        }
     }
 }
