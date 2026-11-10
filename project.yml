@@ -23,7 +23,7 @@ settings:
       - $(SRCROOT)/litehook/src
       - $(SRCROOT)/litehook/external/include
       - $(SRCROOT)/ZSign/common
-    LD_RUNPATH_SEARCH_PATHS: ['$(inherited)', '@executable_path/Frameworks', '@loader_path/..']
+    LD_RUNPATH_SEARCH_PATHS: ['$(inherited)', '@executable_path/Frameworks', '@loader_path', '@loader_path/..']
 targets:
   TVContainer:
     type: application
@@ -64,9 +64,13 @@ targets:
       - target: ZSign
         link: false
         embed: true
+        copy:
+          destination: frameworks
       - target: TweakLoader
         link: false
         embed: true
+        copy:
+          destination: frameworks
       - framework: OpenSSL/Frameworks/OpenSSL.xcframework
         link: false
         embed: true
@@ -111,6 +115,7 @@ targets:
     settings:
       PRODUCT_NAME: ZSign
       EXECUTABLE_PREFIX: ''
+      LD_DYLIB_INSTALL_NAME: '@rpath/$(EXECUTABLE_NAME)'
       SKIP_INSTALL: YES
     dependencies:
       - framework: OpenSSL/Frameworks/OpenSSL.xcframework
@@ -122,6 +127,7 @@ targets:
     settings:
       PRODUCT_NAME: TweakLoader
       EXECUTABLE_PREFIX: ''
+      LD_DYLIB_INSTALL_NAME: '@rpath/$(EXECUTABLE_NAME)'
       SKIP_INSTALL: YES
     dependencies:
       - target: LiveContainerShared

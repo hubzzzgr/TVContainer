@@ -3,6 +3,7 @@ set -euo pipefail
 archive_path="${archive_path:-build/TVContainer.xcarchive}"
 app="$archive_path/Products/Applications/TVContainer.app"
 test -d "$app"
+python3 tests/validate_bundle.py "$app"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist")" = AppleTVOS
 if find "$app" -iname '*sidestore*' -o -name '*.appex' | grep -q .; then
   echo 'Unexpected SideStore component or extension in standalone archive' >&2
