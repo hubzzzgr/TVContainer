@@ -25,7 +25,10 @@ NSError *TVPrepareExecutable(NSURL *url, BOOL mainExecutable, uint32_t systemVer
         if (cmd->cmd == LC_BUILD_VERSION && cmd->cmdsize >= sizeof(struct build_version_command)) {
             const struct build_version_command *build = (const void *)cmd;
             television = build->platform == PLATFORM_TVOS;
-            if (build->minos > systemVersion)
+            // Optional/weak-linked SDK stubs can deliberately advertise a future
+            // OS (SceneBox ships such frameworks). Only the app's deployment
+            // target is an install requirement; dyld handles libraries it uses.
+            if (mainExecutable && build->minos > systemVersion)
                 return TVExecutableError(@"This app needs a newer version of tvOS.");
         }
         if (cmd->cmd == LC_VERSION_MIN_TVOS) television = YES;

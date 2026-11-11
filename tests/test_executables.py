@@ -47,6 +47,12 @@ class ExecutableTests(unittest.TestCase):
                         struct.pack('>IIIIQQII', 0xcafebabf, 1, 0x100000c, 0, 0xfffffffffffffff0, 1024, 14, 0)):
             self.assertNotEqual(self.prepare(content)[0].returncode, 0)
 
+    def test_optional_future_sdk_stub(self):
+        content = bytearray(thin())
+        struct.pack_into('<I', content, 32 + 152 + 24 + 12, 0x640000)
+        self.assertNotEqual(self.prepare(bytes(content), True)[0].returncode, 0)
+        self.assertEqual(self.prepare(fat(bytes(content)), False)[0].returncode, 0)
+
     @unittest.skipUnless(SCENEBOX, 'No SceneBox fixture')
     def test_actual_scenebox_binaries(self):
         tested = wrapped = 0
