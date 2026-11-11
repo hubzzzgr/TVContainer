@@ -72,6 +72,11 @@ static void overwriteAppExecutableFileType(void) {
 
 static inline int translateImageIndex(int origin) {
     if(origin == lcImageIndex) {
+#if TARGET_OS_TV
+        // The hook is installed before dlopen registers the guest image. A
+        // concurrent query during that interval must still return a valid host.
+        if (appMainImageIndex == lcImageIndex || !orig_dyld_get_image_header(appMainImageIndex)) return origin;
+#endif
         if(!appExecutableFileTypeOverwritten) {
             overwriteAppExecutableFileType();
             appExecutableFileTypeOverwritten = true;
