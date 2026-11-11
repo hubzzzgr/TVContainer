@@ -1,5 +1,7 @@
 #import "TVInstaller.h"
 #import "TVArchive.h"
+#import "TVMachOSlice.h"
+#import "TVExecutable.h"
 #import "../Runtime/TVPlatform.h"
 #import "../../LiveContainer/LCMachOUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
@@ -10,52 +12,6 @@
 
 static NSError *TVError(NSString *message) {
     return [NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: message}];
-}
-
-// Check every load command before passing downloaded bytes to upstream patchers.
-static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
-    NSData *data = [NSData dataWithContentsOfURL:url options:NSDataReadingMappedIfSafe error:nil];
-    if (data.length < sizeof(struct mach_header_64)) return TVError(@"The app contains a truncated executable.");
-    const struct mach_header_64 *header = data.bytes;
-    if (header->magic != MH_MAGIC_64 || header->cputype != CPU_TYPE_ARM64)
-        return TVError(@"TVContainer requires thin arm64 tvOS binaries. Export the app for Apple TV devices.");
-    if (header->sizeofcmds > data.length - sizeof(*header)) return TVError(@"Invalid Mach-O load commands.");
-    NSUInteger cursor = sizeof(*header), end = cursor + header->sizeofcmds;
-    BOOL television = NO, entry = NO, text = NO;
-    for (uint32_t i = 0; i < header->ncmds; i++) {
-        if (cursor > end || end - cursor < sizeof(struct load_command)) return TVError(@"Truncated Mach-O load command.");
-        const struct load_command *cmd = data.bytes + cursor;
-        if (cmd->cmdsize < sizeof(*cmd) || cmd->cmdsize > end - cursor) return TVError(@"Invalid Mach-O load command size.");
-        if (cmd->cmd == LC_BUILD_VERSION && cmd->cmdsize >= sizeof(struct build_version_command)) {
-            const struct build_version_command *build = (const void *)cmd;
-            television = build->platform == PLATFORM_TVOS;
-            if (build->minos > NSProcessInfo.processInfo.operatingSystemVersion.majorVersion * 0x10000 + NSProcessInfo.processInfo.operatingSystemVersion.minorVersion * 0x100)
-                return TVError(@"This app needs a newer version of tvOS.");
-        }
-        if (cmd->cmd == LC_VERSION_MIN_TVOS) television = YES;
-        if (cmd->cmd == LC_MAIN && cmd->cmdsize >= sizeof(struct entry_point_command)) {
-            uint64_t offset = ((const struct entry_point_command *)cmd)->entryoff;
-            entry = offset > 0 && offset < data.length;
-        }
-        if (cmd->cmd == LC_SEGMENT_64) {
-            if (cmd->cmdsize < sizeof(struct segment_command_64)) return TVError(@"Truncated Mach-O segment.");
-            const struct segment_command_64 *segment = (const void *)cmd;
-            if (segment->nsects > (cmd->cmdsize - sizeof(*segment)) / sizeof(struct section_64)) return TVError(@"Invalid Mach-O sections.");
-            const struct section_64 *sections = (const void *)(segment + 1);
-            for (uint32_t j = 0; j < segment->nsects; j++) {
-                if (!strncmp(sections[j].sectname, "__text", 16)) {
-                    text = sections[j].offset >= end && sections[j].offset < data.length;
-                }
-            }
-        }
-        if ((cmd->cmd == LC_ENCRYPTION_INFO_64 || cmd->cmd == LC_ENCRYPTION_INFO) &&
-            cmd->cmdsize >= sizeof(struct encryption_info_command) && ((const struct encryption_info_command *)cmd)->cryptid)
-            return TVError(@"Encrypted App Store apps cannot be hosted. Use a decrypted tvOS IPA.");
-        cursor += cmd->cmdsize;
-    }
-    if (!television) return TVError(@"This is not a tvOS device app. iOS and simulator apps need to be rebuilt for Apple TV; changing their platform does not supply missing frameworks.");
-    if (mainExecutable && (!entry || !text || header->filetype != MH_EXECUTE)) return TVError(@"The app has no supported executable entry point.");
-    return nil;
 }
 
 @implementation TVInstaller
@@ -96,14 +52,15 @@ static NSError *validateExecutable(NSURL *url, BOOL mainExecutable) {
         if (![identifier isKindOfClass:NSString.class]) identifier = nil;
         if (!error && (!executable.length || !identifier.length || ![executable.lastPathComponent isEqualToString:executable])) error = TVError(@"The IPA has an invalid Info.plist.");
         NSURL *binary = [app URLByAppendingPathComponent:executable ?: @""];
-        if (!error) error = validateExecutable(binary, YES);
+        NSOperatingSystemVersion os = NSProcessInfo.processInfo.operatingSystemVersion;
+        uint32_t version = (uint32_t)(os.majorVersion * 0x10000 + os.minorVersion * 0x100 + os.patchVersion);
+        if (!error) error = TVPrepareExecutable(binary, YES, version);
         // Reject incompatible embedded libraries before changing or signing anything.
         for (NSURL *file in error ? @[] : [fm enumeratorAtURL:app includingPropertiesForKeys:nil options:0 errorHandler:nil]) {
             if (error) break;
             NSData *prefix = [NSData dataWithContentsOfURL:file options:NSDataReadingMappedIfSafe error:nil];
             if (prefix.length < 4) continue;
-            uint32_t magic = *(const uint32_t *)prefix.bytes;
-            if (magic == MH_MAGIC_64 || magic == FAT_CIGAM) error = validateExecutable(file, [file isEqual:binary]);
+            if (TVIsMachO(prefix)) error = TVPrepareExecutable(file, [file isEqual:binary], version);
         }
         NSDictionary *identity = TVReadSigningIdentity();
         if (!error && !identity) error = TVError(@"Import your signing certificate from a URL in Settings first.");

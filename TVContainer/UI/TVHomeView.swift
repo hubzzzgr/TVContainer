@@ -4,11 +4,24 @@ struct TVHomeView: View {
     @EnvironmentObject private var library: TVLibrary
     @State private var selectedTab = 0
     @State private var installURL = ""
+    @State private var showProjects = false
     var body: some View {
         TabView(selection: $selectedTab) {
-            TVAppsView().tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(0)
+            TVAppsView(showProjects: $showProjects).tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(0)
             TVInstallView(url: $installURL).tabItem { Label("Install from URL", systemImage: "arrow.down.circle") }.tag(1)
             TVSettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(2)
+        }
+        .disabled(showProjects)
+        .overlay {
+            if showProjects {
+                ZStack {
+                    Color.black.opacity(0.65).ignoresSafeArea()
+                    TVWorthCheckingOutView()
+                        .frame(width: 1400, height: 800)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 32))
+                }
+                .onExitCommand { showProjects = false }
+            }
         }
         .alert("TVContainer", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
             Button("OK") { library.error = nil }
@@ -25,6 +38,7 @@ struct TVHomeView: View {
 struct TVAppsView: View {
     @EnvironmentObject private var library: TVLibrary
     @State private var search = ""
+    @Binding var showProjects: Bool
     private var filtered: [TVGuest] {
         library.apps.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.bundleID.localizedCaseInsensitiveContains(search) }
     }
@@ -42,8 +56,8 @@ struct TVAppsView: View {
                     }
                     HStack(spacing: 20) {
                         TextField("Search apps", text: $search).frame(maxWidth: 700)
-                        NavigationLink {
-                            TVWorthCheckingOutView()
+                        Button {
+                            showProjects = true
                         } label: {
                             Image(systemName: "qrcode")
                                 .font(.system(size: 24, weight: .medium))

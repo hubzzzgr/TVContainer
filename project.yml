@@ -36,8 +36,8 @@ targets:
       properties:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
-        CFBundleShortVersionString: '1.0.4'
-        CFBundleVersion: '5'
+        CFBundleShortVersionString: '1.0.5'
+        CFBundleVersion: '6'
         CFBundleURLTypes:
           - CFBundleURLName: com.kdt.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]

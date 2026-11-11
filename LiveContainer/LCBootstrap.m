@@ -11,6 +11,7 @@
 #if TARGET_OS_TV
 #import "../TVContainer/Runtime/TVPlatform.h"
 #import "../TVContainer/Runtime/TVGuestBundle.h"
+#import "../TVContainer/Runtime/TVGuestTweaks.h"
 #endif
 
 #include <dlfcn.h>
@@ -711,6 +712,10 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         }
     }
     
+#if TARGET_OS_TV
+    NSString *tweakError = TVLoadGuestTweaks(appBundle);
+    if (tweakError) { *path = oldPath; return tweakError; }
+#endif
     // Fix dynamic properties of some apps
     [NSUserDefaults performSelector:@selector(initialize)];
 

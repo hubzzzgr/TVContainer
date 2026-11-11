@@ -22,25 +22,26 @@ enum TVQRCode {
 }
 
 struct TVProjectRecommendations: View {
+    var compact = false
     var body: some View {
         HStack(alignment: .top, spacing: 44) {
             project(name: "LiveContainer", description: "original project (big thanks)", url: TVProjectLinks.liveContainer)
-            Rectangle().fill(.white.opacity(0.15)).frame(width: 1, height: 650)
+            Rectangle().fill(.white.opacity(0.15)).frame(width: 1, height: compact ? 560 : 650)
             project(name: "SideTVStore", description: "My other project: install apple tv apps directly from your iphone without a mac or PC",
                     url: TVProjectLinks.sideTVStore)
         }
     }
 
     private func project(name: String, description: String, url: URL) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: compact ? 18 : 24) {
             (Text(name).font(.title.bold()) + Text(" - \(description)").font(.title3).foregroundColor(.secondary))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 210, alignment: .top)
+                .frame(maxWidth: .infinity, minHeight: compact ? 140 : 210, alignment: .top)
             if let image = TVQRCode.image(for: url) {
                 Image(uiImage: image).renderingMode(.original)
                     .interpolation(.none).resizable().scaledToFit()
-                    .frame(width: 320, height: 320)
-                    .padding(24).background(.white)
+                    .frame(width: compact ? 240 : 320, height: compact ? 240 : 320)
+                    .padding(compact ? 16 : 24).background(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .accessibilityLabel("QR code linking to \(url.absoluteString)")
             } else {
@@ -50,7 +51,7 @@ struct TVProjectRecommendations: View {
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .lineLimit(2).frame(height: 54)
         }
-        .padding(32)
+        .padding(compact ? 24 : 32)
         .frame(maxWidth: .infinity)
         .background(.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 24))
@@ -62,11 +63,11 @@ struct TVProjectRecommendations: View {
 struct TVWorthCheckingOutView: View {
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 40) {
+            VStack(alignment: .leading, spacing: 24) {
                 Text("Worth checking out").font(.largeTitle.bold())
-                TVProjectRecommendations()
+                TVProjectRecommendations(compact: true)
             }
-            .padding(64)
+            .padding(40)
         }
     }
 }

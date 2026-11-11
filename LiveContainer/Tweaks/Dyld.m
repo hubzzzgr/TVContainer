@@ -381,6 +381,14 @@ void DyldHooksInit(bool hideLiveContainer, bool hookDlopen, uint32_t spoofSDKVer
     }
     
     appExecutableFileTypeOverwritten = !hideLiveContainer;
+#if TARGET_OS_TV
+    // Bundled tweak filters commonly inspect image zero. Expose the guest's
+    // identity without the iOS path-scrubbing or image-count hiding workaround.
+    litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, _dyld_get_image_header, hook_dyld_get_image_header, nil);
+    litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, _dyld_get_image_vmaddr_slide, hook_dyld_get_image_vmaddr_slide, nil);
+    litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, _dyld_get_image_name, hook_dyld_get_image_name, nil);
+    appExecutableFileTypeOverwritten = false;
+#endif
     
     if(spoofSDKVersion) {
         guestAppSdkVersion = spoofSDKVersion;

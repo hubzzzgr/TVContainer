@@ -35,8 +35,8 @@ The project generator exports its layered Apple TV icon and Top Shelf renditions
 App and certificate downloads display progress in B, KB, MB, GB, or larger units
 with fixed-width tabular counters. Known-length downloads keep the unit selected
 from the total size; servers without a content length show an indeterminate bar.
-The small QR button beside Search apps opens a two-column project page with
-scannable GitHub QR codes. Use the remote's Back button to return to Apps.
+The small QR button beside Search apps opens a two-column popup with
+scannable GitHub QR codes. Press Back on the remote to dismiss it.
 
 ## Use
 
@@ -56,7 +56,7 @@ form without installing automatically.
 ## Hosting and limitations
 
 The installer verifies arm64 tvOS platform commands and rejects encrypted,
-simulator, fat, and iOS binaries. It patches the executable to a dylib with
+simulator and iOS binaries. Universal device executables and embedded libraries are thinned to their arm64 slice before patching and signing. It patches the executable to a dylib with
 `LCPatchExecSlice`, signs the staged app with ZSign, and publishes it only after
 signing succeeds. On relaunch, `LCBootstrap` redirects the main bundle, executable
 path, preferences, home directory, app groups, and keychain access before entering
@@ -70,7 +70,7 @@ depending on the iOS TBZ/TBNZ instruction patterns, which differ on tvOS 27.2.
 Guest artwork is read from its own bundle, including layered assets and catalogs.
 
 This does **not** emulate iOS frameworks. An iPhone IPA must be rebuilt or ported
-for tvOS by its author. Guest extensions and arbitrary third-party tweaks are not
+for tvOS by its author. Bundled dylibs in Tweaks or Dylibs and filtered dylibs in Frameworks are loaded before the guest entry point; failures report the library name and loader error. Existing injected load commands are retained. Guest extensions and arbitrary external tweaks are not
 supported in the initial standalone tvOS target.
 
 The iOS LiveProcess mmap workaround and chained-fixup exception workaround use

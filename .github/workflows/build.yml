@@ -69,6 +69,10 @@ jobs:
             tests/prepare_archive_harness.m TVContainer/Installer/TVArchive.m \
             LiveContainerSwiftUI/Utilities/unarchive.m -o build/prepare-archive-test
           python3 tests/test_app_archive.py build/prepare-archive-test
+          xcrun clang -fobjc-arc -framework Foundation tests/executable_harness.m \
+            TVContainer/Installer/TVExecutable.m TVContainer/Installer/TVMachOSlice.m -o build/executable-test
+          curl --fail --location --retry 3 'https://github.com/donbytyqi/scenebox/releases/download/v1.0.4/SceneBox-1.0.4-tvOS.ipa' -o build/SceneBox.ipa
+          python3 tests/test_executables.py build/executable-test build/SceneBox.ipa
 
   bundle-tests:
     runs-on: macos-15
@@ -78,3 +82,9 @@ jobs:
           submodules: recursive
       - name: Test main bundle hooks without instruction scanning
         run: bash tests/test_bundle_hooks.sh
+      - name: Test bundled tweak loading and filters
+        run: |
+          xcrun clang -dynamiclib tests/tweak_probe.c -o build/TweakProbe.dylib
+          xcrun clang -fobjc-arc -framework Foundation tests/tweaks_harness.m \
+            TVContainer/Runtime/TVGuestTweaks.m -o build/tweaks-test
+          build/tweaks-test "$PWD/build/TweakProbe.dylib"
