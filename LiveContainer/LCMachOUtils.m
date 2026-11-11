@@ -172,6 +172,14 @@ int LCPatchExecSlice(const char *path, struct mach_header_64 *header, bool doInj
         command = (struct load_command *)((void *)command + command->cmdsize);
     }
     long freeLoadCommandCountLeft = (void*)header + textSectionOffest - (void*)command;
+    // Header slack is not necessarily empty: modified apps can store scripts
+    // or trampolines immediately after the load commands. Never shift commands
+    // or append a new one over those bytes. Only a contiguous zero-filled prefix
+    // is available; the existing LC_LOAD_DYLINKER fallback needs no extra space.
+    long zeroPadding = 0;
+    const uint8_t *padding = (const uint8_t *)command;
+    while (zeroPadding < freeLoadCommandCountLeft && padding[zeroPadding] == 0) zeroPadding++;
+    freeLoadCommandCountLeft = zeroPadding;
     int tweakLoaderLoadDylibCmdSize = 0x48;
     
     // Insert command priority: LC_CODE_SIGNATURE > LC_ID_DYLIB > LC_LOAD_DYLIB

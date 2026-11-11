@@ -5,6 +5,7 @@ struct TVHomeView: View {
     @State private var selectedTab = 0
     @State private var installURL = ""
     @State private var showProjects = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         TabView(selection: $selectedTab) {
             TVAppsView(showProjects: $showProjects).tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(0)
@@ -13,16 +14,21 @@ struct TVHomeView: View {
         }
         .disabled(showProjects)
         .overlay {
-            if showProjects {
-                ZStack {
+            ZStack {
+                if showProjects {
                     Color.black.opacity(0.65).ignoresSafeArea()
+                        .transition(.opacity)
                     TVWorthCheckingOutView()
                         .frame(width: 1400, height: 800)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 32))
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.94).combined(with: .opacity))
+                        .onExitCommand { showProjects = false }
                 }
-                .onExitCommand { showProjects = false }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(showProjects)
         }
+        .animation(reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.32, dampingFraction: 0.88), value: showProjects)
         .alert("TVContainer", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
             Button("OK") { library.error = nil }
         } message: { Text(library.error ?? "") }
