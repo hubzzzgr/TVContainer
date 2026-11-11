@@ -39,7 +39,7 @@ targets:
         CFBundleShortVersionString: '1.0.6'
         CFBundleVersion: '7'
         CFBundleURLTypes:
-          - CFBundleURLName: com.kdt.tvcontainer.urlscheme
+          - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -51,7 +51,7 @@ targets:
           NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer
+      PRODUCT_BUNDLE_IDENTIFIER: com.hubzzzgr.tvcontainer
       OTHER_LDFLAGS: ['-e', '_LiveContainerMainC']
       ENABLE_DEBUG_DYLIB: NO
       CODE_SIGN_ENTITLEMENTS: TVContainer/TVContainer.entitlements
@@ -86,7 +86,7 @@ targets:
       - path: TVContainer/Runtime
       - path: litehook/src/litehook.c
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.runtime
+      PRODUCT_BUNDLE_IDENTIFIER: com.hubzzzgr.tvcontainer.runtime
       GENERATE_INFOPLIST_FILE: YES
       SKIP_INSTALL: YES
       OTHER_CFLAGS: ['$(inherited)', '-fcommon']
@@ -101,7 +101,7 @@ targets:
       - path: TVContainer/Installer
       - path: LiveContainerSwiftUI/Utilities/unarchive.m
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.ui
+      PRODUCT_BUNDLE_IDENTIFIER: com.hubzzzgr.tvcontainer.ui
       GENERATE_INFOPLIST_FILE: YES
       SKIP_INSTALL: YES
       SWIFT_OBJC_BRIDGING_HEADER: TVContainer/Installer/TVContainer-Bridging-Header.h
@@ -150,7 +150,7 @@ targets:
       - TVContainer/UI/TVDownloadProgressView.swift
       - TVContainer/Installer/TVIconCatalog.m
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.kdt.tvcontainer.icon-tests
+      PRODUCT_BUNDLE_IDENTIFIER: com.hubzzzgr.tvcontainer.icon-tests
       GENERATE_INFOPLIST_FILE: YES
       SWIFT_OBJC_BRIDGING_HEADER: TVContainer/Installer/TVContainer-Bridging-Header.h
     dependencies:
