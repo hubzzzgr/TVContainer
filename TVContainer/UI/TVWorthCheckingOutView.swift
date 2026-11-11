@@ -39,7 +39,8 @@ struct TVProjectRecommendations: View {
 
     private func project(name: String, description: String, url: URL) -> some View {
         VStack(spacing: compact ? 18 : 24) {
-            (Text(name).font(.title.bold()) + Text(" - \(description)").font(.title3).foregroundColor(.secondary))
+            (Text(name).font(compact ? .system(size: 32, weight: .bold) : .title.bold()) +
+             Text(" - \(description)").font(compact ? .system(size: 26) : .title3).foregroundColor(.secondary))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .frame(height: compact ? 140 : 210, alignment: .top)
