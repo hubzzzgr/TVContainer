@@ -4,9 +4,9 @@
 
 # TVContainer
 
-## Your apps deserve the big screen. 📺✨
+## Your apps without limits
 
-Grab your Siri Remote and make room for something new! TVContainer brings your tvOS apps together in a library made for Apple TV. Add an app by URL, pick its card, and press Play—your next discovery is just a few clicks away.
+Grab your remote and make room for something new! TVContainer got the same essential features of LiveContainer, but on Apple TV! No 3 app limit🙏🙏
 
 Built on [LiveContainer](https://github.com/LiveContainer/LiveContainer), with an interface designed for the couch and your Siri Remote.
 
