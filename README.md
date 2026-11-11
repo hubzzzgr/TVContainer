@@ -1,6 +1,16 @@
+<p align="center">
+  <img src="TVContainer/Artwork/TVContainerIcon.jpg" width="240" alt="TVContainer app logo">
+</p>
+
 # TVContainer
 
-Apple TV port of [LiveContainer](https://github.com/LiveContainer/LiveContainer) with a Siri Remote interface and URL-based app and certificate installation.
+## Your apps deserve the big screen. 📺✨
+
+Grab your Siri Remote and make room for something new! TVContainer brings your tvOS apps together in a library made for Apple TV. Add an app by URL, pick its card, and press Play—your next discovery is just a few clicks away.
+
+Built on [LiveContainer](https://github.com/LiveContainer/LiveContainer), with an interface designed for the couch and your Siri Remote.
+
+**[Get TVContainer](https://github.com/hubzzzgr/TVContainer/releases/latest)** · **[Set up with SideTVStore](https://github.com/hubzzzgr/SideStore-tvOS)**
 
 ## Requirements
 
@@ -12,6 +22,8 @@ Apple TV port of [LiveContainer](https://github.com/LiveContainer/LiveContainer)
 ## Download and installation
 
 Download [TVContainer.ipa from the latest release](https://github.com/hubzzzgr/TVContainer/releases/latest).
+
+**Recommended: [SideTVStore](https://github.com/hubzzzgr/SideStore-tvOS)**—my Apple TV sideloading tool. It runs on your iPhone and lets you pair with your Apple TV, sign tvOS IPAs, and install them over local Wi-Fi. Download TVContainer above, then follow [SideTVStore's setup guide](https://github.com/hubzzzgr/SideStore-tvOS#getting-started) to get it onto your TV.
 
 The IPA is unsigned. Sign it with your Apple TV development provisioning profile, preserving `get-task-allow` and the supplied keychain groups, then install it on your Apple TV.
 
