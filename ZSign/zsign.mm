@@ -306,6 +306,10 @@ int checkCert(NSData *key,
 
 // this method is used to get teamId for ADP/Enterprise certs ,don't use it in normal jitless
 + (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass {
+    return [self getTeamIdWithCert:cert pass:pass quiet:NO];
+}
+
++ (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass quiet:(BOOL)quiet {
     string strPassword;
 
     const char* strPKeyFileData = (const char*)[cert bytes];
@@ -316,7 +320,10 @@ int checkCert(NSData *key,
 
     __block ZSignAsset zSignAsset;
     
-    if (!zSignAsset.InitSimple(strPKeyFileData, (int)[cert length], nil, 0, strPassword)) {
+    if (quiet) ERR_clear_error();
+    bool success = zSignAsset.InitSimple(strPKeyFileData, (int)[cert length], nil, 0, strPassword, quiet);
+    if (quiet) ERR_clear_error();
+    if (!success) {
         ZLog::logs.clear();
         return nil;
     }

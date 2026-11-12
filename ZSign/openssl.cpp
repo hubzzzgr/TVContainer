@@ -760,6 +760,10 @@ bool ZSignAsset::GetCMSContent2(const void* strCMSDataInput, int size, string &s
 
 
 bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyDataSize, const void* strProvisionData, int strProvisionDataSize, const string &strPassword){
+    return InitSimple(strSignerPKeyData, strSignerPKeyDataSize, strProvisionData, strProvisionDataSize, strPassword, false);
+}
+
+bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyDataSize, const void* strProvisionData, int strProvisionDataSize, const string &strPassword, bool quiet){
 
     jvalue jvProv;
     string strProvContent;
@@ -779,7 +783,7 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
 
     if (strProvisionData && m_strTeamId.empty())
     {
-        ZLog::Error(">>> Can't Find TeamId!\n");
+        if (!quiet) ZLog::Error(">>> Can't Find TeamId!\n");
         return false;
     }
 
@@ -803,7 +807,7 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
                 {
                     if (0 == PKCS12_parse(p12, "", &evpPKey, &x509Cert, NULL))
                     {
-                        CMSError();
+                        if (!quiet) CMSError();
                     }
                     PKCS12_free(p12);
                 }
@@ -824,7 +828,7 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
                     {
                         if (0 == PKCS12_parse(p12, strPassword.c_str(), &evpPKey, &x509Cert, NULL))
                         {
-                            CMSError();
+                            if (!quiet) CMSError();
                         }
                         PKCS12_free(p12);
                     }
@@ -836,7 +840,7 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
 
     if (NULL == evpPKey)
     {
-        ZLog::Error(">>> Can't Load P12 or PrivateKey File! Please Input The Correct File And Password!\n");
+        if (!quiet) ZLog::Error(">>> Can't Load P12 or PrivateKey File! Please Input The Correct File And Password!\n");
         return false;
     }
 
@@ -874,13 +878,13 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
 
     if (NULL == x509Cert)
     {
-        ZLog::Error(">>> Can't Find Paired Certificate And PrivateKey!\n");
+        if (!quiet) ZLog::Error(">>> Can't Find Paired Certificate And PrivateKey!\n");
         return false;
     }
 
     if (!GetCertSubjectCN(x509Cert, m_strSubjectCN))
     {
-        ZLog::Error(">>> Can't Find Paired Certificate Subject Common Name!\n");
+        if (!quiet) ZLog::Error(">>> Can't Find Paired Certificate Subject Common Name!\n");
         return false;
     }
     

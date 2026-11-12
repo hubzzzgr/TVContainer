@@ -46,6 +46,12 @@
                 // importer. This blob exists only in memory and encrypted Keychain.
                 container = PKCS12_create("", "TVContainer local TLS", key, cert, NULL,
                     NID_pbe_WithSHA1And3_Key_TripleDES_CBC, NID_pbe_WithSHA1And3_Key_TripleDES_CBC, 2048, 2048, 0);
+                // Apple's PKCS#12 importer needs the legacy SHA-1 container MAC;
+                // OpenSSL 3 defaults to SHA-256 even with legacy bag ciphers.
+                // This affects only the in-memory/Keychain container, not TLS.
+                if (container && PKCS12_set_mac(container, "", 0, NULL, 0, 2048, EVP_sha1()) != 1) {
+                    PKCS12_free(container); container = NULL;
+                }
                 int length = container ? i2d_PKCS12(container, &encoded) : 0;
                 if (length > 0) result = [NSData dataWithBytes:encoded length:(NSUInteger)length];
             }

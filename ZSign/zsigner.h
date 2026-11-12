@@ -14,5 +14,6 @@
                            pass:(NSString *)pass completionHandler:(void(^)(BOOL success, NSError *error))completionHandler;
 // this method is used to get teamId for ADP/Enterprise certs ,don't use it in normal jitless
 + (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass;
++ (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass quiet:(BOOL)quiet;
 + (int)checkCert:(NSData *)cert pass:(NSString *)pass completionHandler:(void(^)(int status, NSDate* expirationDate, NSString* organizationalUnitName, NSString *error))completionHandler;
 @end

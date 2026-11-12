@@ -19,6 +19,7 @@ final class TVTCPReceiver: ObservableObject {
     var release: ((UUID) -> Void)?
     var disconnected: ((UUID) -> Void)?
     private var listener: NWListener?
+    private var generation = UUID()
     private var connections: [UUID: NWConnection] = [:]
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var readyWaiters: [UUID: (Bool) -> Void] = [:]
@@ -42,6 +43,8 @@ final class TVTCPReceiver: ObservableObject {
     func start() {
         guard listener == nil else { return }
         status = "Starting…"
+        let generation = UUID()
+        self.generation = generation
         do {
             guard !deviceName.isEmpty else { throw TVTransferFailure("Unable to read the Apple TV’s assigned device name.") }
             // Remove only this receiver's private staging directory. Never do so
@@ -61,14 +64,15 @@ final class TVTCPReceiver: ObservableObject {
             sec_protocol_options_set_verify_block(tls.securityProtocolOptions, { [weak self] _, trust, complete in
                 let peerTrust = sec_trust_copy_ref(trust).takeRetainedValue()
                 Task { @MainActor [weak self] in
-                    guard let self, self.listener != nil, let peer = TVReceiverKeychain.peer(peerTrust) else { complete(false); return }
+                    guard let self, self.listener != nil, self.generation == generation,
+                          let peer = TVReceiverKeychain.peer(peerTrust) else { complete(false); return }
                     do {
                         if try self.keychain.trustedPeers().contains(peer.fingerprint) { complete(true); return }
                         // The TLS verification callback doesn't expose a connection
                         // ID; a unique approval ID avoids trusting another handshake.
                         let approvalID = UUID()
                         guard await self.pair?(approvalID, peer.name, peer.fingerprint) == true,
-                              self.listener != nil else { complete(false); return }
+                              self.listener != nil, self.generation == generation else { complete(false); return }
                         try self.keychain.trust(peer.fingerprint)
                         complete(true)
                     } catch { complete(false) }
@@ -105,6 +109,7 @@ final class TVTCPReceiver: ObservableObject {
     func stop(message: String = "Stopped") {
         let old = listener
         listener = nil
+        generation = UUID()
         old?.service = nil
         old?.cancel()
         running = false; port = nil; status = message

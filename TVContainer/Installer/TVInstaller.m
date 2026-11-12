@@ -43,7 +43,7 @@ static NSError *TVError(NSString *message) {
         if (error) *error = TVError(@"Invalid P12 signing identity.");
         return NO;
     }
-    NSString *team = [ZSigner getTeamIdWithCert:data pass:password];
+    NSString *team = [ZSigner getTeamIdWithCert:data pass:password quiet:YES];
     if (!team.length) {
         if (error) *error = TVError(@"Unable to read this signing identity. Check the P12 file and password.");
         return NO;

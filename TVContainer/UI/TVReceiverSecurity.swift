@@ -31,13 +31,11 @@ final class TVReceiverKeychain {
         guard status == errSecSuccess else { throw TVTransferFailure("Unable to save receiver Keychain data (\(status)).") }
     }
     func identity(deviceName: String) throws -> SecIdentity {
-        let data: Data
-        if let saved = try read("tls-identity") { data = saved }
-        else {
-            data = try TVReceiverIdentity.create(deviceName: deviceName)
-            try write("tls-identity", data: data)
-        }
-        return try Self.importIdentity(data)
+        if let saved = try read("tls-identity") { return try Self.importIdentity(saved) }
+        let data = try TVReceiverIdentity.create(deviceName: deviceName)
+        let identity = try Self.importIdentity(data)
+        try write("tls-identity", data: data)
+        return identity
     }
     static func importIdentity(_ data: Data) throws -> SecIdentity {
         var items: CFArray?
