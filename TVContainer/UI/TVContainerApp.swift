@@ -14,7 +14,8 @@ struct TVContainerApp: App {
                 .environmentObject(library).environmentObject(receiver)
                 .preferredColorScheme(.dark)
                 .onAppear { receiver.attach(library); receiver.setActive(scenePhase != .background) }
-                .onDisappear { receiver.setActive(false) }
+                // A tvOS keyboard can cover the root view without backgrounding
+                // the app. Keep its pending certificate/password flow alive.
                 .onChange(of: scenePhase) { _, phase in receiver.setActive(phase != .background) }
         }
     }
