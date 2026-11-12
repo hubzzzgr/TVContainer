@@ -46,7 +46,9 @@ connections. Relaunching a guest replaces this launcher process as before.
    separately, with at most 16 client pins stored on Apple TV.
 
 Apple TV holds its TLS identity and approved client pins in a separate Keychain
-service. P12 passwords never belong in Bonjour, request headers, preferences,
+service. Its local identity container uses a random nonempty wrapping password
+kept only inside that encrypted Keychain value (empty-password PKCS#12 derivation
+differs between Apple and OpenSSL). P12 passwords never belong in Bonjour, request headers, preferences,
 logs, URLs, or pairing messages.
 
 ## Upload framing (inside TLS)

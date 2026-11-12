@@ -5,6 +5,7 @@ import CryptoKit
 // The TLS identity is independent of the developer's signing identity. A user
 // can pair and receive the very first signing P12 without already having one.
 final class TVReceiverKeychain {
+    private struct StoredIdentity: Codable { let pkcs12: Data; let password: String }
     let service: String
     init(service: String = "com.kdt.tvcontainer.receiver.v1") { self.service = service }
     private func query(_ account: String) -> [String: Any] {
@@ -31,15 +32,34 @@ final class TVReceiverKeychain {
         guard status == errSecSuccess else { throw TVTransferFailure("Unable to save receiver Keychain data (\(status)).") }
     }
     func identity(deviceName: String) throws -> SecIdentity {
-        if let saved = try read("tls-identity") { return try Self.importIdentity(saved) }
-        let data = try TVReceiverIdentity.create(deviceName: deviceName)
-        let identity = try Self.importIdentity(data)
-        try write("tls-identity", data: data)
+        if let saved = try read("tls-identity") {
+            do {
+                if let stored = try? JSONDecoder().decode(StoredIdentity.self, from: saved) {
+                    return try Self.importIdentity(stored.pkcs12, password: stored.password)
+                }
+                return try Self.importIdentity(saved)
+            }
+            catch {
+                // Repair an unusable first-start identity only before any peer
+                // has been paired. Never silently rotate an established pin.
+                guard try trustedPeers().isEmpty else { throw error }
+            }
+        }
+        var random = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, random.count, &random) == errSecSuccess else {
+            throw TVTransferFailure("Unable to create TLS identity protection.")
+        }
+        let password = random.map { String(format: "%02X", $0) }.joined()
+        let data = try TVReceiverIdentity.create(deviceName: deviceName, password: password)
+        let identity = try Self.importIdentity(data, password: password)
+        // Both the protected container and its random wrapping password live
+        // only inside the encrypted Keychain value, never preferences or files.
+        try write("tls-identity", data: JSONEncoder().encode(StoredIdentity(pkcs12: data, password: password)))
         return identity
     }
-    static func importIdentity(_ data: Data) throws -> SecIdentity {
+    static func importIdentity(_ data: Data, password: String = "") throws -> SecIdentity {
         var items: CFArray?
-        var options: [String: Any] = [kSecImportExportPassphrase as String: ""]
+        var options: [String: Any] = [kSecImportExportPassphrase as String: password]
 #if os(macOS)
         if #available(macOS 15.0, *) { options[kSecImportToMemoryOnly as String] = true }
 #endif

@@ -106,7 +106,8 @@ import Darwin
         try await wait { server.running }
         print("Receiver stage: listener ready")
         assert(server.txtRecords == ["deviceName":"Test Apple TV", "appVersion":"1.2.3", "protocol":"1"])
-        let identity = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Test iPhone"))
+        let identityPassword = UUID().uuidString
+        let identity = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Test iPhone", password: identityPassword), password: identityPassword)
         func client(_ identity: SecIdentity?) async throws -> TestClient {
             let client = TestClient(port: server.port!, pin: server.fingerprint, identity: identity)
             try await client.connect(); return client
@@ -162,7 +163,8 @@ import Darwin
 
         // A different certificate cannot use previously approved trust.
         allowPair = false
-        let stranger = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Different phone"))
+        let strangerPassword = UUID().uuidString
+        let stranger = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Different phone", password: strangerPassword), password: strangerPassword)
         await rejectedClient(stranger)
         let peersAfterRejection = try keychain.trustedPeers()
         assert(pairCount == 2 && peersAfterRejection.count == 1)

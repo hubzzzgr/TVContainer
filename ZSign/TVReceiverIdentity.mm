@@ -9,7 +9,7 @@
 #include <initializer_list>
 
 @implementation TVReceiverIdentity
-+ (NSData *)createForDevice:(NSString *)deviceName error:(NSError **)error {
++ (NSData *)createForDevice:(NSString *)deviceName password:(NSString *)password error:(NSError **)error {
     EVP_PKEY_CTX *context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     EVP_PKEY *key = NULL;
     X509 *cert = NULL;
@@ -44,12 +44,12 @@
             if (X509_sign(cert, key, EVP_sha256()) > 0) {
                 // Legacy PKCS#12 encryption identifiers are supported by Apple's
                 // importer. This blob exists only in memory and encrypted Keychain.
-                container = PKCS12_create("", "TVContainer local TLS", key, cert, NULL,
+                container = PKCS12_create(password.UTF8String, "TVContainer local TLS", key, cert, NULL,
                     NID_pbe_WithSHA1And3_Key_TripleDES_CBC, NID_pbe_WithSHA1And3_Key_TripleDES_CBC, 2048, 2048, 0);
                 // Apple's PKCS#12 importer needs the legacy SHA-1 container MAC;
                 // OpenSSL 3 defaults to SHA-256 even with legacy bag ciphers.
                 // This affects only the in-memory/Keychain container, not TLS.
-                if (container && PKCS12_set_mac(container, "", 0, NULL, 0, 2048, EVP_sha1()) != 1) {
+                if (container && PKCS12_set_mac(container, password.UTF8String, -1, NULL, 0, 2048, EVP_sha1()) != 1) {
                     PKCS12_free(container); container = NULL;
                 }
                 int length = container ? i2d_PKCS12(container, &encoded) : 0;
