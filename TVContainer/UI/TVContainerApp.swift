@@ -10,8 +10,9 @@ struct TVContainerApp: App {
             TVHomeView().environmentObject(library).environmentObject(receiver)
                 .modifier(TVReceiverPromptModifier())
                 .preferredColorScheme(.dark)
-                .onAppear { receiver.attach(library); receiver.setActive(scenePhase == .active) }
-                .onChange(of: scenePhase) { _, phase in receiver.setActive(phase == .active) }
+                .onAppear { receiver.attach(library); receiver.setActive(scenePhase != .background) }
+                .onDisappear { receiver.setActive(false) }
+                .onChange(of: scenePhase) { _, phase in receiver.setActive(phase != .background) }
         }
     }
 }

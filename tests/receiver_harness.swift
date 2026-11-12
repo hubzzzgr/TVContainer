@@ -71,7 +71,7 @@ import Security
             TVUploadHeader(version: 1, action: "uploadP12", filename: "a.p12", size: 4_194_305),
             TVUploadHeader(version: 1, action: "uploadIPA", filename: "a.ipa", size: -1),
             TVUploadHeader(version: 1, action: "uploadIPA", filename: "a.ipa", size: 0),
-            TVUploadHeader(version: 1, action: "uploadIPA", filename: "a.p12", size: 1)
+            TVUploadHeader(version: 1, action: "uploadIPA", filename: "bad\nname", size: 1)
         ]
         for value in invalids {
             do { try value.validate(); fatalError("Invalid header accepted") } catch is TVTransferFailure {}
@@ -86,11 +86,14 @@ import Security
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
         let server = TVTCPReceiver(deviceName: "Test Apple TV", appVersion: "1.2.3", keychain: keychain, advertise: false,
             temporaryDirectory: temporaryDirectory)
-        var pairCount = 0, allowPair = true, importCount = 0, releaseCount = 0
+        var pairCount = 0, allowPair = true, importCount = 0, releaseCount = 0, reservationCount = 0
         var rejection: String?, importResult = TVTransferResponse(ok: true, message: "Actually installed")
         var files: [URL] = [], received = Data()
         server.pair = { _, _, _ in pairCount += 1; return allowPair }
-        server.reserve = { _, _ in rejection }
+        server.reserve = { _, _ in
+            if rejection == nil { reservationCount += 1 }
+            return rejection
+        }
         server.upload = { _, _, file in
             importCount += 1; files.append(file); received = try! Data(contentsOf: file)
             return importResult
@@ -135,6 +138,14 @@ import Security
         assert(!rejected.ok && rejected.message == rejection && importCount == 2)
         third.connection.cancel(); rejection = nil
 
+        for malformed in [Data([0,0,0,0]), Data([0,0,128,0]), Data([0,0,0,2,91,93])] {
+            let invalid = try await client(identity)
+            try await invalid.send(malformed)
+            let result = try await invalid.response()
+            assert(!result.ok && importCount == 2)
+            invalid.connection.cancel()
+        }
+
         // Truncated uploads never reach the importer; reserved state is released.
         let fourth = try await client(identity)
         try await fourth.send(header + payload.prefix(17))
@@ -162,7 +173,7 @@ import Security
         // Listener disable closes an in-progress upload and cleans temporary data.
         let last = try await client(identity)
         try await last.send(header + payload.prefix(11))
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await wait { reservationCount == 4 }
         let pin = server.fingerprint
         server.stop()
         try await wait { releaseCount == 4 }

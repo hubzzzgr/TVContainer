@@ -52,7 +52,7 @@ final class TVReceiverModel: ObservableObject {
         }
         server.disconnected = { [weak self] id in
             guard let self else { return }
-            if self.prompt?.id == id || self.prompt?.kind == .pair { self.resolve(approved: false) }
+            if self.prompt?.id == id { self.resolve(approved: false) }
         }
     }
     func attach(_ library: TVLibrary) { self.library = library; reconcile() }
@@ -136,7 +136,10 @@ struct TVReceiverPromptModifier: ViewModifier {
         content.alert(receiver.prompt?.title ?? "SideTVStore", isPresented: Binding(
             get: { receiver.prompt != nil }, set: { if !$0 { receiver.resolve(approved: false); password = "" } }),
             presenting: receiver.prompt) { prompt in
-                if prompt.kind == .certificate { SecureField("P12 password (may be empty)", text: $password) }
+                if prompt.kind == .certificate {
+                    SecureField("P12 password (may be empty)", text: $password)
+                        .textContentType(.password).textInputAutocapitalization(.never).autocorrectionDisabled()
+                }
                 Button(prompt.action) { receiver.resolve(approved: true, password: password); password = "" }
                 Button("Cancel", role: .cancel) { receiver.resolve(approved: false); password = "" }
             } message: { prompt in Text(prompt.message) }

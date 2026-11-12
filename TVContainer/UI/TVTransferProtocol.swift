@@ -22,8 +22,8 @@ struct TVUploadHeader: Codable, Equatable {
         }
         let limit: Int64 = action == "uploadIPA" ? 2 * 1024 * 1024 * 1024 : 4 * 1024 * 1024
         guard size > 0, size <= limit else { throw TVTransferFailure("The incoming file exceeds the allowed size or is empty.") }
-        let suffix = (filename as NSString).pathExtension.lowercased()
-        guard suffix == (action == "uploadIPA" ? "ipa" : "p12") else { throw TVTransferFailure("The filename does not match the transfer type.") }
+        // The action chooses the importer. Validate actual contents there rather
+        // than rejecting a valid IPA/P12 because a sender renamed its file.
     }
 }
 
@@ -59,6 +59,6 @@ enum TVTransferProtocol {
         return header
     }
     static func displayName(_ input: String) -> String {
-        String(input.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.prefix(120))
+        String(String.UnicodeScalarView(input.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.prefix(120)))
     }
 }

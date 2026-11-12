@@ -66,8 +66,9 @@ exactly header.size binary bytes
 
 The four-byte length counts UTF-8 bytes, not characters. Header length is
 1–16384 bytes. Size is a positive integer: at most 2 GiB for IPA and 4 MiB for
-P12. Filename must be a basename with the matching extension, no path separators
-or control characters, and at most 200 UTF-8 bytes. Unknown version/actions,
+P12. Filename must be a basename with no path separators or control characters,
+and at most 200 UTF-8 bytes. The action chooses the importer; actual contents,
+rather than the filename extension, determine validity. Unknown version/actions,
 malformed JSON, truncated files and idle connections fail. TCP packet boundaries
 are irrelevant. The payload is streamed in chunks of at most 64 KiB to private,
 protected temporary storage. A transfer can last at most 30 minutes and cannot

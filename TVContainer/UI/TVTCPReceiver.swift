@@ -177,7 +177,8 @@ final class TVTCPReceiver: ObservableObject {
                 while remaining > 0 {
                     try Task.checkCancellation()
                     guard Date() < deadline else { throw TVTransferFailure("The transfer exceeded its time limit.") }
-                    let chunk = try await readChunk(maximum: Int(min(remaining, 64 * 1024)), from: connection)
+                    let chunk = try await readChunk(maximum: Int(min(remaining, 64 * 1024)), from: connection,
+                        timeout: min(30, deadline.timeIntervalSinceNow))
                     try output.write(contentsOf: chunk)
                     remaining -= Int64(chunk.count)
                 }
@@ -188,6 +189,9 @@ final class TVTCPReceiver: ObservableObject {
         } catch is CancellationError { response = .failure("Transfer cancelled.") }
         catch let error as TVTransferFailure { response = .failure(error.message) }
         catch { response = .failure("The transfer failed or the connection was interrupted.") }
+        if response.message.utf8.count > 8_192 {
+            response = .init(ok: response.ok, message: String(String.UnicodeScalarView(response.message.unicodeScalars.prefix(2_000))))
+        }
         // Result is sent only after the importer finishes, never on mere receipt.
         if let bytes = try? TVTransferProtocol.frame(response) {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -206,7 +210,7 @@ final class TVTCPReceiver: ObservableObject {
         }
         return result
     }
-    private func readChunk(maximum: Int, from connection: NWConnection) async throws -> Data {
+    private func readChunk(maximum: Int, from connection: NWConnection, timeout interval: TimeInterval = 30) async throws -> Data {
         try Task.checkCancellation()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -217,7 +221,7 @@ final class TVTCPReceiver: ObservableObject {
                     continuation.resume(throwing: TVTransferFailure("Timed out waiting for transfer data."))
                     connection.cancel()
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: timeout)
+                DispatchQueue.main.asyncAfter(deadline: .now() + max(0, interval), execute: timeout)
                 connection.receive(minimumIncompleteLength: 1, maximumLength: maximum) { data, _, complete, error in
                     guard !finished else { return }; finished = true; timeout.cancel()
                     if let data, !data.isEmpty { continuation.resume(returning: data) }

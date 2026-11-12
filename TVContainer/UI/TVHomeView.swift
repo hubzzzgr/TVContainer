@@ -183,6 +183,8 @@ struct TVSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
                     Text("Settings").font(.largeTitle.bold())
+                    TVReceiverSettings(receiver: receiver)
+                    Divider().padding(.vertical)
                     Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
                           systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "key")
                         .foregroundStyle(library.certificateInstalled ? .green : .orange)
@@ -201,8 +203,6 @@ struct TVSettingsView: View {
                         }
                     }
                     TVOperationStatus()
-                    Divider().padding(.vertical)
-                    TVReceiverSettings(receiver: receiver)
                     Divider().padding(.vertical)
                     Text("Local Storage").font(.title2.bold())
                     Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
