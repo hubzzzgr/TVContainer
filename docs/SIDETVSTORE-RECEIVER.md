@@ -100,6 +100,8 @@ For P12, a certificate already installed causes rejection without replacement.
 The import dialog contains a secure password field on **Apple TV** (empty is
 allowed). The password is not sent by SideTVStore; it is validated using the
 existing developer identity importer and stored only in the encrypted Keychain.
+The password dialog allows 180 seconds for remote entry; other confirmations
+expire after 60 seconds. Certificate-validation diagnostics are suppressed.
 The final write uses atomic `SecItemAdd`, never `SecItemUpdate`, so a concurrent
 import cannot replace an existing identity. Wrong-password/invalid/team-mismatch
 results are failures. Temporary files are removed on success, cancellation,

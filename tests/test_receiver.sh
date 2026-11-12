@@ -14,7 +14,7 @@ xcrun clang -fobjc-arc -framework Foundation -framework Security -ITVContainer/R
   build/signing_store.m tests/signing_store_harness.m -o build/signing-store-tests
 build/signing-store-tests
 sources=(ZSign/*.cpp ZSign/common/*.cpp ZSign/*.mm)
-xcrun clang++ -std=c++20 -fobjc-arc -F"$framework" -IZSign/common \
+xcrun clang++ -std=c++20 -fobjc-arc -F"$framework" -IZSign -IZSign/common \
   -framework Foundation -framework OpenSSL -Wl,-rpath,"$framework" \
   "${sources[@]}" tests/p12_privacy_harness.mm -o build/p12-privacy-tests
 build/p12-privacy-tests

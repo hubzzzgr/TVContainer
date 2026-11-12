@@ -98,8 +98,11 @@ final class TVReceiverKeychain {
     // Self-signed certificates are allowed only for local pairing; the TLS
     // CertificateVerify proves key possession and the approved DER pin persists.
     static func peer(_ trust: SecTrust) -> (name: String, fingerprint: String)? {
-        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate], let leaf = chain.first else { return nil }
+        // Pairing is local and pinned. An unapproved certificate must not cause
+        // AIA/OCSP network requests or block the UI fetching a remote chain.
+        SecTrustSetNetworkFetchAllowed(trust, false)
         SecTrustSetPolicies(trust, SecPolicyCreateBasicX509())
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate], let leaf = chain.first else { return nil }
         SecTrustSetAnchorCertificates(trust, [leaf] as CFArray)
         SecTrustSetAnchorCertificatesOnly(trust, true)
         guard SecTrustEvaluateWithError(trust, nil) else { return nil }

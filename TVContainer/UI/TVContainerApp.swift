@@ -7,8 +7,11 @@ struct TVContainerApp: App {
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
-            TVHomeView().environmentObject(library).environmentObject(receiver)
-                .modifier(TVReceiverPromptModifier())
+            ZStack {
+                TVHomeView()
+                Color.clear.frame(width: 0, height: 0).modifier(TVReceiverPromptModifier())
+            }
+                .environmentObject(library).environmentObject(receiver)
                 .preferredColorScheme(.dark)
                 .onAppear { receiver.attach(library); receiver.setActive(scenePhase != .background) }
                 .onDisappear { receiver.setActive(false) }

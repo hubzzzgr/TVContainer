@@ -28,13 +28,13 @@ final class TVReceiverModel: ObservableObject {
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unavailable")
         server.pair = { [weak self] id, name, fingerprint in
             guard let self, self.enabled, self.active, self.transfer == nil,
-                  self.library?.busy == false, self.prompt == nil else { return false }
+                  self.library?.busy == false, self.library?.error == nil, self.prompt == nil else { return false }
             let message = "SideTVStore on \(name) wants to pair. Compare these certificate fingerprints on both devices before approving.\n\nPhone: \(TVReceiverKeychain.displayFingerprint(fingerprint))\n\nApple TV: \(TVReceiverKeychain.displayFingerprint(self.server.fingerprint))"
             return await self.ask(.init(id: id, kind: .pair, title: "Pair with SideTVStore?", message: message)).0
         }
         server.reserve = { [weak self] id, header in
             guard let self, self.active, self.enabled, let library = self.library else { return "TVContainer is not ready to receive files." }
-            guard !library.busy, self.transfer == nil, self.prompt == nil else { return "TVContainer is busy. Try again when the current operation finishes." }
+            guard !library.busy, library.error == nil, self.transfer == nil, self.prompt == nil else { return "TVContainer is busy. Try again when the current operation finishes." }
             if header.action == "uploadP12" && TVInstaller.hasCertificate() { return "A signing certificate is already installed. It was not replaced." }
             if header.action == "uploadIPA" && !TVInstaller.hasCertificate() { return "Import a signing certificate before sending apps." }
             self.transfer = id; library.busy = true
@@ -73,7 +73,7 @@ final class TVReceiverModel: ObservableObject {
         guard prompt == nil, enabled, active, !Task.isCancelled else { return (false, "") }
         return await withCheckedContinuation { continuation in
             decision = continuation; prompt = request
-            DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + (request.kind == .certificate ? 180 : 60)) { [weak self] in
                 if self?.prompt?.id == request.id { self?.resolve(approved: false) }
             }
         }
