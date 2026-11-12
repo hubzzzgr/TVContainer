@@ -3,8 +3,16 @@ import SwiftUI
 @main
 struct TVContainerApp: App {
     @StateObject private var library = TVLibrary()
+    @StateObject private var receiver = TVReceiverModel()
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
-        WindowGroup { TVHomeView().environmentObject(library).preferredColorScheme(.dark) }
+        WindowGroup {
+            TVHomeView().environmentObject(library).environmentObject(receiver)
+                .modifier(TVReceiverPromptModifier())
+                .preferredColorScheme(.dark)
+                .onAppear { receiver.attach(library); receiver.setActive(scenePhase == .active) }
+                .onChange(of: scenePhase) { _, phase in receiver.setActive(phase == .active) }
+        }
     }
 }
 

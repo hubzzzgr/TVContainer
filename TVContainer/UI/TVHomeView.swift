@@ -174,6 +174,7 @@ struct TVInstallView: View {
 
 struct TVSettingsView: View {
     @EnvironmentObject private var library: TVLibrary
+    @EnvironmentObject private var receiver: TVReceiverModel
     @State private var certificateURL = ""
     @State private var password = ""
     @State private var confirmRemove = false
@@ -200,6 +201,8 @@ struct TVSettingsView: View {
                         }
                     }
                     TVOperationStatus()
+                    Divider().padding(.vertical)
+                    TVReceiverSettings(receiver: receiver)
                     Divider().padding(.vertical)
                     Text("Local Storage").font(.title2.bold())
                     Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)

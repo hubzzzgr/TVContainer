@@ -40,6 +40,13 @@ scannable GitHub QR codes. Press Back on the remote to dismiss it.
 
 ## Use
 
+Settings also offers an optional **SideTVStore TCP Server** with a persisted
+toggle, live listener status, device name and port. Pairing uses mutual TLS with
+Apple TV approval and certificate fingerprints, followed by separate confirmation
+for each incoming IPA or P12. Existing signing certificates cannot be replaced
+through TCP. See [the shared sender/receiver contract](../docs/SIDETVSTORE-RECEIVER.md)
+for the SideTVStore handshake and exact wire framing.
+
 1. Open Settings and enter a direct P12 certificate download URL and its password.
    The identity is validated and saved in the device Keychain.
 2. Open Install from URL and enter a direct download link to a decrypted tvOS IPA.

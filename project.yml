@@ -36,8 +36,8 @@ targets:
       properties:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
-        CFBundleShortVersionString: '1.0.6'
-        CFBundleVersion: '7'
+        CFBundleShortVersionString: '1.0.7'
+        CFBundleVersion: '8'
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -45,7 +45,8 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen: {}
         GCSupportsControllerUserInteraction: true
-        NSLocalNetworkUsageDescription: Download apps and certificates from your local network.
+        NSLocalNetworkUsageDescription: Receive apps and certificates securely from SideTVStore and download files from your local network.
+        NSBonjourServices: ['_tvcontainer._tcp']
         NSMicrophoneUsageDescription: A guest app is requesting microphone access.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
@@ -110,6 +111,9 @@ targets:
       - target: LiveContainerShared
       - target: ZSign
       - sdk: libarchive.tbd
+      - sdk: Network.framework
+      - sdk: Security.framework
+      - sdk: CryptoKit.framework
   ZSign:
     type: library.dynamic
     platform: tvOS

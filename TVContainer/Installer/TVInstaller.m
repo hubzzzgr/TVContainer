@@ -34,6 +34,43 @@ static NSError *TVError(NSString *message) {
 }
 + (BOOL)removeCertificateWithError:(NSError **)error { return TVRemoveSigningIdentity(error); }
 
++ (BOOL)importCertificateIfAbsent:(NSData *)data password:(NSString *)password error:(NSError **)error {
+    if (self.hasCertificate) {
+        if (error) *error = TVError(@"A signing certificate is already installed. It was not replaced.");
+        return NO;
+    }
+    if (!data.length || data.length > 4 * 1024 * 1024) {
+        if (error) *error = TVError(@"Invalid P12 signing identity.");
+        return NO;
+    }
+    NSString *team = [ZSigner getTeamIdWithCert:data pass:password];
+    if (!team.length) {
+        if (error) *error = TVError(@"Unable to read this signing identity. Check the P12 file and password.");
+        return NO;
+    }
+    if (LCSharedUtils.teamIdentifier.length && ![team isEqualToString:LCSharedUtils.teamIdentifier]) {
+        if (error) *error = TVError(@"The certificate must belong to the Apple Developer team that signed TVContainer.");
+        return NO;
+    }
+    return TVSaveSigningIdentityIfAbsent(data, password, error);
+}
+
++ (void)incomingAppName:(NSURL *)archive completion:(void (^)(NSString *, NSError *))completion {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSURL *stage = [fm.temporaryDirectory URLByAppendingPathComponent:NSUUID.UUID.UUIDString isDirectory:YES];
+        NSError *error = nil;
+        [fm createDirectoryAtURL:stage withIntermediateDirectories:YES attributes:nil error:&error];
+        NSURL *app = error ? nil : TVExtractAppArchive(archive, stage, &error);
+        NSDictionary *info = app ? [NSDictionary dictionaryWithContentsOfURL:[app URLByAppendingPathComponent:@"Info.plist"]] : nil;
+        NSString *name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"];
+        if (![name isKindOfClass:NSString.class] || !name.length) name = app.lastPathComponent.stringByDeletingPathExtension;
+        if (!error && !info) error = TVError(@"The IPA has no valid app Info.plist.");
+        [fm removeItemAtURL:stage error:nil];
+        completion(error ? nil : name, error);
+    });
+}
+
 + (void)installArchive:(NSURL *)archive completion:(void (^)(NSError *))completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSFileManager *fm = NSFileManager.defaultManager;

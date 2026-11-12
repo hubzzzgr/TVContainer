@@ -78,3 +78,21 @@ BOOL TVRemoveSigningIdentity(NSError **error) {
     OSStatus status = SecItemDelete((__bridge CFDictionaryRef)identityQuery());
     return checkStatus(status == errSecItemNotFound ? errSecSuccess : status, error);
 }
+
+BOOL TVSaveSigningIdentityIfAbsent(NSData *certificate, NSString *password, NSError **error) {
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:@{@"certificate": certificate, @"password": password}
+        format:NSPropertyListBinaryFormat_v1_0 options:0 error:error];
+    if (!data) return NO;
+    NSMutableDictionary *query = identityQuery().mutableCopy;
+    query[(__bridge id)kSecValueData] = data;
+    query[(__bridge id)kSecAttrAccessible] = (__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly;
+    // A TCP import must never update an existing identity, including a race
+    // with a different importer between validation and this Keychain call.
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
+    if (status == errSecDuplicateItem) {
+        if (error) *error = [NSError errorWithDomain:@"TVContainer" code:status
+            userInfo:@{NSLocalizedDescriptionKey:@"A signing certificate is already installed. It was not replaced."}];
+        return NO;
+    }
+    return checkStatus(status, error);
+}
