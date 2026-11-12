@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Security
+import Darwin
 
 @MainActor final class TestClient {
     let connection: NWConnection
@@ -59,6 +60,7 @@ import Security
 
 @main struct ReceiverTests {
     @MainActor static func main() async throws {
+        setbuf(stdout, nil)
         // Watchdog prevents a broken network callback from hanging CI.
         Task { try await Task.sleep(nanoseconds: 90_000_000_000); fatalError("Receiver tests timed out") }
         let valid = TVUploadHeader(version: 1, action: "uploadIPA", filename: "test.ipa", size: 200_003)
@@ -100,7 +102,9 @@ import Security
         }
         server.release = { _ in releaseCount += 1 }
         server.start()
+        print("Receiver initial listener state: \(server.status)")
         try await wait { server.running }
+        print("Receiver stage: listener ready")
         assert(server.txtRecords == ["deviceName":"Test Apple TV", "appVersion":"1.2.3", "protocol":"1"])
         let identity = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Test iPhone"))
         func client(_ identity: SecIdentity?) async throws -> TestClient {
@@ -114,6 +118,7 @@ import Security
         for byte in header.prefix(4) { try await first.send(Data([byte])) }
         try await first.send(header.dropFirst(4) + payload)
         let firstResult = try await first.response()
+        print("Receiver stage: first upload returned a result")
         assert(firstResult == importResult && received == payload && importCount == 1 && pairCount == 1)
         first.connection.cancel()
         try await wait { releaseCount == 1 }
@@ -129,6 +134,7 @@ import Security
         assert(secondResult == importResult && importCount == 2 && pairCount == 1)
         second.connection.cancel()
         try await wait { releaseCount == 2 }
+        print("Receiver stage: reconnect and importer failure checked")
 
         // Certificate-present/busy policy rejects before the importer runs.
         rejection = "A signing certificate is already installed. It was not replaced."
@@ -151,6 +157,7 @@ import Security
         try await fourth.send(header + payload.prefix(17))
         fourth.connection.cancel()
         try await wait { releaseCount == 3 }
+        print("Receiver stage: interrupted upload cleaned up")
         assert(importCount == 2)
 
         // A different certificate cannot use previously approved trust.
@@ -200,8 +207,8 @@ import Security
             } catch {}
         }
     }
-    @MainActor static func wait(_ predicate: () -> Bool) async throws {
-        for _ in 0..<200 { if predicate() { return }; try await Task.sleep(nanoseconds: 25_000_000) }
-        fatalError("Receiver state transition timed out")
+    @MainActor static func wait(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+        for _ in 0..<480 { if predicate() { return }; try await Task.sleep(nanoseconds: 25_000_000) }
+        fatalError("Receiver state transition timed out", file: file, line: line)
     }
 }

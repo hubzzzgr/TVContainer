@@ -2,6 +2,7 @@ import Foundation
 import Network
 import Security
 import Combine
+@preconcurrency import Dispatch
 
 @MainActor
 final class TVTCPReceiver: ObservableObject {
@@ -127,6 +128,7 @@ final class TVTCPReceiver: ObservableObject {
                 case .ready: self.readyWaiters.removeValue(forKey: id)?(true)
                 case .failed, .cancelled:
                     self.readyWaiters.removeValue(forKey: id)?(false)
+                    self.tasks[id]?.cancel()
                     self.disconnected?(id)
                 default: break
                 }
@@ -197,6 +199,8 @@ final class TVTCPReceiver: ObservableObject {
         if response.message.utf8.count > 8_192 {
             response = .init(ok: response.ok, message: String(String.UnicodeScalarView(response.message.unicodeScalars.prefix(2_000))))
         }
+        guard !Task.isCancelled else { return }
+        switch connection.state { case .failed, .cancelled: return; default: break }
         // Result is sent only after the importer finishes, never on mere receipt.
         if let bytes = try? TVTransferProtocol.frame(response) {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
