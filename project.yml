@@ -114,6 +114,7 @@ targets:
       - sdk: Network.framework
       - sdk: Security.framework
       - sdk: CryptoKit.framework
+      - sdk: SystemConfiguration.framework
   ZSign:
     type: library.dynamic
     platform: tvOS

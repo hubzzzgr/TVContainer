@@ -9,7 +9,7 @@ final class TVTCPReceiver: ObservableObject {
     @Published private(set) var status = "Stopped"
     @Published private(set) var port: UInt16?
     @Published private(set) var fingerprint = ""
-    let deviceName: String
+    @Published private(set) var deviceName: String
     let appVersion: String
     let keychain: TVReceiverKeychain
     var pair: ((UUID, String, String) async -> Bool)?
@@ -33,11 +33,16 @@ final class TVTCPReceiver: ObservableObject {
         self.temporaryDirectory = temporaryDirectory
     }
     var txtRecords: [String: String] { ["deviceName": deviceName, "appVersion": appVersion, "protocol": "1"] }
+    func updateDeviceName(_ name: String) {
+        guard name != deviceName else { return }
+        stop(); deviceName = name
+    }
 
     func start() {
         guard listener == nil else { return }
         status = "Starting…"
         do {
+            guard !deviceName.isEmpty else { throw TVTransferFailure("Unable to read the Apple TV’s assigned device name.") }
             // Remove only this receiver's private staging directory. Never do so
             // while a confirmed native install is still retaining its source.
             if tasks.isEmpty { try? FileManager.default.removeItem(at: temporaryDirectory) }

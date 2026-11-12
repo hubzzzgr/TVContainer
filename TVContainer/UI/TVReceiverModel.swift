@@ -24,7 +24,7 @@ final class TVReceiverModel: ObservableObject {
 
     init() {
         enabled = UserDefaults.standard.bool(forKey: "sideTVStoreTCPEnabled")
-        server = TVTCPReceiver(deviceName: UIDevice.current.name,
+        server = TVTCPReceiver(deviceName: TVReceiverDeviceName() ?? "",
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unavailable")
         server.pair = { [weak self] id, name, fingerprint in
             guard let self, self.enabled, self.active, self.transfer == nil,
@@ -58,7 +58,10 @@ final class TVReceiverModel: ObservableObject {
     func attach(_ library: TVLibrary) { self.library = library; reconcile() }
     func setActive(_ active: Bool) { self.active = active; reconcile() }
     private func reconcile() {
-        if enabled && active && library != nil { server.start() }
+        if enabled && active && library != nil {
+            server.updateDeviceName(TVReceiverDeviceName() ?? "")
+            server.start()
+        }
         else { resolve(approved: false); server.stop() }
     }
     func forgetPeers() {
@@ -158,7 +161,7 @@ struct TVReceiverSettings: View {
             Toggle("Receive from SideTVStore", isOn: $receiver.enabled)
             Label(server.status, systemImage: server.running ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(server.running ? .green : .red)
-            Text("Device: \(server.deviceName)")
+            Text("Device: \(server.deviceName.isEmpty ? "Unavailable" : server.deviceName)")
             Text("TCP port: \(server.port.map(String.init) ?? "—")").monospacedDigit()
             if !server.fingerprint.isEmpty {
                 Text("TLS fingerprint: \(TVReceiverKeychain.displayFingerprint(server.fingerprint))")
