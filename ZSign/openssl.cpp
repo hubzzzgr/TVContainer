@@ -8,6 +8,10 @@
 #include <openssl/pkcs12.h>
 #include <openssl/conf.h>
 
+// Receiver validation is quiet per-thread, including nested certificate-field
+// helpers. Other signing operations keep their existing diagnostic behavior.
+static thread_local bool quietCryptoErrors = false;
+
 const char* ZSignAsset::s_szAppleDevCACert = ""
 "-----BEGIN CERTIFICATE-----\n"
 "MIIEIjCCAwqgAwIBAgIIAd68xDltoBAwDQYJKoZIhvcNAQEFBQAwYjELMAkGA1UE\n"
@@ -103,7 +107,7 @@ ZSignAsset::OpenSSLInit::OpenSSLInit()
 
 bool ZSignAsset::CMSError()
 {
-	ERR_print_errors_fp(stdout);
+	if (!quietCryptoErrors) ERR_print_errors_fp(stdout);
 	return false;
 }
 
@@ -764,6 +768,11 @@ bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyData
 }
 
 bool ZSignAsset::InitSimple(const void* strSignerPKeyData, int strSignerPKeyDataSize, const void* strProvisionData, int strProvisionDataSize, const string &strPassword, bool quiet){
+    struct QuietScope {
+        bool previous;
+        explicit QuietScope(bool value) : previous(quietCryptoErrors) { quietCryptoErrors = previous || value; }
+        ~QuietScope() { quietCryptoErrors = previous; }
+    } quietScope(quiet);
 
     jvalue jvProv;
     string strProvContent;

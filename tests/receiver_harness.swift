@@ -156,6 +156,7 @@ import Darwin
         // Truncated uploads never reach the importer; reserved state is released.
         let fourth = try await client(identity)
         try await fourth.send(header + payload.prefix(17))
+        try await wait { reservationCount == 3 }
         fourth.connection.cancel()
         try await wait { releaseCount == 3 }
         print("Receiver stage: interrupted upload cleaned up")
