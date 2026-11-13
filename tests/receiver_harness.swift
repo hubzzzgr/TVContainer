@@ -66,6 +66,8 @@ import Darwin
         let valid = TVUploadHeader(version: 1, action: "uploadIPA", filename: "test.ipa", size: 200_003)
         let decoded = try TVTransferProtocol.header(JSONEncoder().encode(valid))
         assert(decoded == valid)
+        try TVUploadHeader(version: 1, action: "uploadIPA", filename: "large.ipa", size: 2_147_483_649).validate()
+        try TVUploadHeader(version: 1, action: "uploadIPA", filename: "large.ipa", size: Int64.max).validate()
         let invalids = [
             TVUploadHeader(version: 2, action: "uploadIPA", filename: "a.ipa", size: 1),
             TVUploadHeader(version: 1, action: "other", filename: "a.ipa", size: 1),

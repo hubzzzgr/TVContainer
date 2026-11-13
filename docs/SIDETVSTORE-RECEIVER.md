@@ -100,8 +100,12 @@ exactly header.size binary bytes
 ```
 
 The four-byte length counts UTF-8 bytes, not characters. Header length is
-1–16384 bytes. Size is a positive integer: at most 2 GiB for IPA and 4 MiB for
-P12. Filename must be a basename with no path separators or control characters,
+1–16384 bytes. Size is a positive signed 64-bit integer. IPA files have no fixed
+size cap; P12 files remain limited to 4 MiB. IPA files larger than 2 GiB require
+an additional native Install (destructive/red) / Abort confirmation on Apple TV
+before installation. SideTVStore must also allow these larger files in its own
+sender validation. Storage and existing timeouts still apply.
+Filename must be a basename with no path separators or control characters,
 and at most 200 UTF-8 bytes. The action chooses the importer; actual contents,
 rather than the filename extension, determine validity. Unknown version/actions,
 malformed JSON, truncated files and idle connections fail. TCP packet boundaries

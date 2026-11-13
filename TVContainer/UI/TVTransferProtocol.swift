@@ -7,6 +7,7 @@ struct TVTransferFailure: LocalizedError {
 }
 
 struct TVUploadHeader: Codable, Equatable {
+    static let largeIPAWarningThreshold: Int64 = 2 * 1024 * 1024 * 1024
     let version: Int
     let action: String
     let filename: String
@@ -20,7 +21,7 @@ struct TVUploadHeader: Codable, Equatable {
               filename.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
             throw TVTransferFailure("Invalid transfer filename.")
         }
-        let limit: Int64 = action == "uploadIPA" ? 2 * 1024 * 1024 * 1024 : 4 * 1024 * 1024
+        let limit: Int64 = action == "uploadIPA" ? .max : 4 * 1024 * 1024
         guard size > 0, size <= limit else { throw TVTransferFailure("The incoming file exceeds the allowed size or is empty.") }
         // The action chooses the importer. Validate actual contents there rather
         // than rejecting a valid IPA/P12 because a sender renamed its file.

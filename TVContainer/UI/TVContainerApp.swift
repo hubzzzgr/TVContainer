@@ -10,6 +10,7 @@ struct TVContainerApp: App {
             ZStack {
                 TVHomeView()
                 Color.clear.frame(width: 0, height: 0).modifier(TVReceiverPromptModifier())
+                Color.clear.frame(width: 0, height: 0).modifier(TVLargeInstallPromptModifier())
             }
                 .environmentObject(library).environmentObject(receiver)
                 .preferredColorScheme(.dark)
@@ -23,6 +24,9 @@ struct TVContainerApp: App {
 
 @MainActor
 final class TVLibrary: ObservableObject {
+    @Published private(set) var largeInstallPrompt = false
+    @Published private(set) var largeInstallName = ""
+    private var largeInstallDecision: CheckedContinuation<Bool, Never>?
     @Published var apps: [TVGuest] = []
     @Published var status = ""
     @Published var busy = false
@@ -73,8 +77,11 @@ final class TVLibrary: ObservableObject {
             let url = try Self.remoteURL(input)
             guard self.certificateInstalled else { throw TVFailure("Import your signing certificate in Settings first.") }
             self.status = "Downloading app…"
-            let file = try await self.download(url, limit: 2 * 1024 * 1024 * 1024)
+            let file = try await self.download(url, limit: .max)
             defer { try? FileManager.default.removeItem(at: file) }
+            try Task.checkCancellation()
+            let size = Int64(try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0)
+            guard await self.confirmLargeInstallation(size: size, name: url.lastPathComponent) else { throw CancellationError() }
             try Task.checkCancellation()
             self.status = "Preparing and signing app…"
             UserDefaults.standard.set(true, forKey: "SigningInProgress")
@@ -123,6 +130,26 @@ final class TVLibrary: ObservableObject {
     }
     func cancelDownload() { if downloading { operation?.cancel() } }
 
+    func confirmLargeInstallation(size: Int64, name: String) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        guard size > TVUploadHeader.largeIPAWarningThreshold else { return true }
+        guard largeInstallDecision == nil else { return false }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                largeInstallDecision = continuation
+                largeInstallName = TVTransferProtocol.displayName(name)
+                largeInstallPrompt = true
+            }
+        } onCancel: {
+            Task { @MainActor in self.resolveLargeInstallation(false) }
+        }
+    }
+    func resolveLargeInstallation(_ install: Bool) {
+        let decision = largeInstallDecision
+        largeInstallDecision = nil; largeInstallPrompt = false
+        decision?.resume(returning: install)
+    }
+
     private func download(_ url: URL, limit: Int64) async throws -> URL {
         let id = UUID()
         activeDownloadID = id
@@ -146,6 +173,20 @@ final class TVLibrary: ObservableObject {
             catch is CancellationError { status = "Download cancelled." }
             catch let failure as URLError where failure.code == .cancelled { status = "Download cancelled." }
             catch { self.error = error.localizedDescription; status = "" }
+        }
+    }
+}
+
+struct TVLargeInstallPromptModifier: ViewModifier {
+    @EnvironmentObject private var library: TVLibrary
+    func body(content: Content) -> some View {
+        content.alert("Install large app?", isPresented: Binding(
+            get: { library.largeInstallPrompt },
+            set: { if !$0 { library.resolveLargeInstallation(false) } })) {
+            Button("Install", role: .destructive) { library.resolveLargeInstallation(true) }
+            Button("Abort") { library.resolveLargeInstallation(false) }
+        } message: {
+            Text("\(library.largeInstallName) is larger than 2 GiB. Installing it may take a long time and requires additional storage for extraction and signing. Large apps have not been validated and installation may fail. Continue?")
         }
     }
 }

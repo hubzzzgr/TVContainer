@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TVHomeView: View {
     @EnvironmentObject private var library: TVLibrary
@@ -213,6 +214,39 @@ struct TVSettingsView: View {
                 Button("Remove", role: .destructive) { library.removeCertificate() }
                 Button("Cancel", role: .cancel) {}
             } message: { Text("Import it again before installing or signing more apps.") }
+        }
+        .background(TVSettingsRemoteControl { receiver.fingerprintsHidden.toggle() }.frame(width: 0, height: 0))
+    }
+}
+
+private struct TVSettingsRemoteControl: UIViewControllerRepresentable {
+    let action: () -> Void
+    func makeUIViewController(context: Context) -> Controller { Controller(action: action) }
+    func updateUIViewController(_ controller: Controller, context: Context) { controller.action = action }
+    static func dismantleUIViewController(_ controller: Controller, coordinator: ()) { controller.removeGesture() }
+
+    final class Controller: UIViewController {
+        var action: () -> Void
+        private var gesture: UILongPressGestureRecognizer?
+        init(action: @escaping () -> Void) { self.action = action; super.init(nibName: nil, bundle: nil) }
+        required init?(coder: NSCoder) { fatalError() }
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            guard gesture == nil, let window = view.window else { return }
+            let gesture = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
+            gesture.allowedPressTypes = [NSNumber(value: UIPress.PressType.playPause.rawValue)]
+            gesture.minimumPressDuration = 2
+            gesture.cancelsTouchesInView = false
+            window.addGestureRecognizer(gesture)
+            self.gesture = gesture
+        }
+        override func viewWillDisappear(_ animated: Bool) { removeGesture(); super.viewWillDisappear(animated) }
+        func removeGesture() {
+            if let gesture { gesture.view?.removeGestureRecognizer(gesture) }
+            gesture = nil
+        }
+        @objc private func held(_ gesture: UILongPressGestureRecognizer) {
+            if gesture.state == .began { action() }
         }
     }
 }

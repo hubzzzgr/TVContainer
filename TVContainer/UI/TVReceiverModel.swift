@@ -16,6 +16,7 @@ final class TVReceiverModel: ObservableObject {
         didSet { UserDefaults.standard.set(enabled, forKey: "sideTVStoreTCPEnabled"); reconcile() }
     }
     @Published private(set) var prompt: TVReceiverPrompt?
+    @Published var fingerprintsHidden = false
     let server: TVTCPReceiver
     private weak var library: TVLibrary?
     private var active = false
@@ -101,9 +102,14 @@ final class TVReceiverModel: ObservableObject {
                     }
                 }
                 guard enabled, active, !Task.isCancelled else { throw CancellationError() }
-                let approved = await ask(.init(id: id, kind: .ipa, title: "Install incoming app?",
-                    message: "SideTVStore sent \(TVTransferProtocol.displayName(name)). Install it in TVContainer?"))
-                guard approved.0, !Task.isCancelled else { library.status = "Incoming app cancelled."; return .failure("Installation cancelled on Apple TV.") }
+                let approved: Bool
+                if header.size > TVUploadHeader.largeIPAWarningThreshold {
+                    approved = await library.confirmLargeInstallation(size: header.size, name: name)
+                } else {
+                    approved = await ask(.init(id: id, kind: .ipa, title: "Install incoming app?",
+                        message: "SideTVStore sent \(TVTransferProtocol.displayName(name)). Install it in TVContainer?" )).0
+                }
+                guard approved, !Task.isCancelled else { library.status = "Incoming app cancelled."; return .failure("Installation cancelled on Apple TV.") }
                 library.status = "Preparing and signing incoming app…"
                 UserDefaults.standard.set(true, forKey: "SigningInProgress")
                 defer { UserDefaults.standard.removeObject(forKey: "SigningInProgress") }
@@ -190,7 +196,7 @@ struct TVReceiverSettings: View {
             Text("Changing the port disconnects transfers. The last successfully bound port is reused on restart.")
                 .font(.caption).foregroundStyle(.secondary)
             if !server.fingerprint.isEmpty {
-                Text("TLS fingerprint: \(TVReceiverKeychain.displayFingerprint(server.fingerprint))")
+                Text("TLS fingerprint: \(receiver.fingerprintsHidden ? String(repeating: "•••••••• ", count: 8).trimmingCharacters(in: .whitespaces) : TVReceiverKeychain.displayFingerprint(server.fingerprint))")
                     .font(.caption.monospaced()).foregroundStyle(.secondary)
             }
             Text("Keep TVContainer’s launcher open and this server enabled. In SideTVStore, pair or select this TV in the Apple TV tab, then open Settings → TVContainer, choose that paired TV, enter the TCP port shown here, and connect. Both devices need the same reachable local network and Local Network access.")
