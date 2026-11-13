@@ -9,6 +9,8 @@ final class TVTCPReceiver: ObservableObject {
     @Published private(set) var running = false
     @Published private(set) var status = "Stopped"
     @Published private(set) var port: UInt16?
+    @Published private(set) var requestedPort: UInt16?
+    @Published private(set) var connected = false
     @Published private(set) var fingerprint = ""
     @Published private(set) var deviceName: String
     let appVersion: String
@@ -21,20 +23,30 @@ final class TVTCPReceiver: ObservableObject {
     private var listener: NWListener?
     private var generation = UUID()
     private var connections: [UUID: NWConnection] = [:]
+    private var authenticatedConnections: Set<UUID> = []
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var readyWaiters: [UUID: (Bool) -> Void] = [:]
-    private let advertise: Bool
+    private let preferences: UserDefaults
+    private static let portPreference = "sideTVStoreTCPPort"
     let temporaryDirectory: URL
 
-    init(deviceName: String, appVersion: String, keychain: TVReceiverKeychain = TVReceiverKeychain(), advertise: Bool = true,
+    init(deviceName: String, appVersion: String, keychain: TVReceiverKeychain = TVReceiverKeychain(), preferences: UserDefaults = .standard,
          temporaryDirectory: URL = FileManager.default.temporaryDirectory.appendingPathComponent("TVContainerReceiver", isDirectory: true)) {
         self.deviceName = deviceName
         self.appVersion = appVersion
         self.keychain = keychain
-        self.advertise = advertise
+        self.preferences = preferences
+        let saved = preferences.integer(forKey: Self.portPreference)
+        self.requestedPort = saved > 0 && saved <= Int(UInt16.max) ? UInt16(saved) : nil
         self.temporaryDirectory = temporaryDirectory
     }
-    var txtRecords: [String: String] { ["deviceName": deviceName, "appVersion": appVersion, "protocol": "1"] }
+    // A requested port is only routing metadata. Persist it only once it binds.
+    // Selecting automatic explicitly retries on an ephemeral port; no silent fallback.
+    func configurePort(_ port: UInt16?) {
+        precondition(port != 0)
+        stop()
+        requestedPort = port
+    }
     func updateDeviceName(_ name: String) {
         guard name != deviceName else { return }
         stop(); deviceName = name
@@ -42,6 +54,7 @@ final class TVTCPReceiver: ObservableObject {
 
     func start() {
         guard listener == nil else { return }
+        port = nil
         status = "Starting…"
         let generation = UUID()
         self.generation = generation
@@ -81,38 +94,53 @@ final class TVTCPReceiver: ObservableObject {
             let tcp = NWProtocolTCP.Options()
             tcp.enableKeepalive = true
             let parameters = NWParameters(tls: tls, tcp: tcp)
-            let listener = try NWListener(using: parameters, on: .any)
+            let listener = try NWListener(using: parameters,
+                on: requestedPort.flatMap { NWEndpoint.Port(rawValue: $0) } ?? .any)
             self.listener = listener
-            if advertise {
-                listener.service = NWListener.Service(name: deviceName, type: TVTransferProtocol.service,
-                    txtRecord: NWTXTRecord(txtRecords))
-            }
+            // Direct paired-TV address routing: no Bonjour publication or dependency.
             listener.stateUpdateHandler = { [weak self, weak listener] state in
                 Task { @MainActor in
                     guard let self, let listener, self.listener === listener else { return }
                     switch state {
-                    case .ready: self.running = true; self.port = listener.port?.rawValue; self.status = "Running"
-                    case .failed: self.stop(message: "Failed to start. Check Local Network permission, then toggle the server off and on.")
-                    case .waiting: self.running = false; self.port = nil; self.status = "Waiting for the network…"
+                    case .ready:
+                        guard let boundPort = listener.port?.rawValue, boundPort > 0 else {
+                            self.stop(message: "The listener did not report a bound TCP port."); return
+                        }
+                        self.port = boundPort
+                        self.requestedPort = boundPort
+                        self.preferences.set(Int(boundPort), forKey: Self.portPreference)
+                        self.running = true; self.status = "Running"
+                    case .failed(let error): self.failToStart(error)
+                    case .waiting(let error):
+                        self.running = false; self.port = nil
+                        self.status = "Waiting to listen\(self.requestedPort.map { " on port \($0)" } ?? ""): \(error.localizedDescription) Check Local Network access, change the port, or choose Use Automatic Port."
                     case .cancelled: self.stop()
                     default: break
                     }
                 }
             }
-            listener.newConnectionHandler = { [weak self] connection in
-                Task { @MainActor in self?.accept(connection) }
+            listener.newConnectionHandler = { [weak self, weak listener] connection in
+                Task { @MainActor in
+                    guard let self, let listener, self.listener === listener else { connection.cancel(); return }
+                    self.accept(connection)
+                }
             }
             listener.start(queue: .main)
-        } catch { stop(message: error.localizedDescription) }
+        } catch { failToStart(error) }
+    }
+
+    private func failToStart(_ error: Error) {
+        let target = requestedPort.map { " on port \($0)" } ?? " on an automatic port"
+        stop(message: "Could not listen\(target): \(error.localizedDescription) Check Local Network access, change the port, or choose Use Automatic Port.")
     }
 
     func stop(message: String = "Stopped") {
         let old = listener
         listener = nil
         generation = UUID()
-        old?.service = nil
         old?.cancel()
         running = false; port = nil; status = message
+        authenticatedConnections.removeAll(); connected = false
         for (id, connection) in connections {
             tasks[id]?.cancel()
             readyWaiters.removeValue(forKey: id)?(false)
@@ -126,12 +154,17 @@ final class TVTCPReceiver: ObservableObject {
         guard listener != nil, connections.count < 4 else { connection.cancel(); return }
         let id = UUID()
         connections[id] = connection
-        connection.stateUpdateHandler = { [weak self] state in
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, let connection, self.connections[id] === connection else { return }
                 switch state {
-                case .ready: self.readyWaiters.removeValue(forKey: id)?(true)
+                case .ready:
+                    // NWConnection.ready follows successful mutual TLS verification.
+                    self.authenticatedConnections.insert(id); self.connected = true
+                    self.readyWaiters.removeValue(forKey: id)?(true)
                 case .failed, .cancelled:
+                    self.authenticatedConnections.remove(id)
+                    self.connected = !self.authenticatedConnections.isEmpty
                     self.readyWaiters.removeValue(forKey: id)?(false)
                     self.tasks[id]?.cancel()
                     self.disconnected?(id)
@@ -144,6 +177,8 @@ final class TVTCPReceiver: ObservableObject {
             defer {
                 connection.cancel()
                 self.connections.removeValue(forKey: id)
+                self.authenticatedConnections.remove(id)
+                self.connected = !self.authenticatedConnections.isEmpty
                 self.tasks.removeValue(forKey: id)
                 self.readyWaiters.removeValue(forKey: id)?(false)
             }

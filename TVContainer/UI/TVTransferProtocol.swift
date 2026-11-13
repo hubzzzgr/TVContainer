@@ -34,7 +34,6 @@ struct TVTransferResponse: Codable, Equatable {
 }
 
 enum TVTransferProtocol {
-    static let service = "_tvcontainer._tcp"
     static let maximumHeaderLength = 16 * 1024
     static func length(_ bytes: Data) throws -> Int {
         guard bytes.count == 4 else { throw TVTransferFailure("Incomplete frame length.") }

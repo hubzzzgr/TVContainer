@@ -37,7 +37,7 @@ targets:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '8'
+        CFBundleVersion: '9'
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -46,7 +46,6 @@ targets:
         UILaunchScreen: {}
         GCSupportsControllerUserInteraction: true
         NSLocalNetworkUsageDescription: Receive apps and certificates securely from SideTVStore and download files from your local network.
-        NSBonjourServices: ['_tvcontainer._tcp']
         NSMicrophoneUsageDescription: A guest app is requesting microphone access.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

@@ -57,6 +57,11 @@ final class TVReceiverModel: ObservableObject {
     }
     func attach(_ library: TVLibrary) { self.library = library; reconcile() }
     func setActive(_ active: Bool) { self.active = active; reconcile() }
+    func changePort(_ port: UInt16?) {
+        resolve(approved: false)
+        server.configurePort(port)
+        reconcile()
+    }
     private func reconcile() {
         if enabled && active && library != nil {
             server.updateDeviceName(TVReceiverDeviceName() ?? "")
@@ -154,6 +159,9 @@ struct TVReceiverSettings: View {
     @ObservedObject var receiver: TVReceiverModel
     @ObservedObject private var server: TVTCPReceiver
     @State private var forget = false
+    @State private var editPort = false
+    @State private var portText = ""
+    @State private var portError: String?
     init(receiver: TVReceiverModel) { self.receiver = receiver; server = receiver.server }
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -161,17 +169,50 @@ struct TVReceiverSettings: View {
             Toggle("Receive from SideTVStore", isOn: $receiver.enabled)
             Label(server.status, systemImage: server.running ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(server.running ? .green : .red)
+            Label(server.connected ? "SideTVStore connected" : "SideTVStore disconnected",
+                  systemImage: server.connected ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(server.connected ? .green : .red)
             Text("Device: \(server.deviceName.isEmpty ? "Unavailable" : server.deviceName)")
             Text("TCP port: \(server.port.map(String.init) ?? "—")").monospacedDigit()
+            if receiver.enabled {
+                Text(server.port == nil ? "The TCP port appears after the listener starts successfully." : "Enter this port in SideTVStore for this paired Apple TV. If it changes, update SideTVStore’s port field.")
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 24) {
+                Button("Change TCP Port") {
+                    portText = server.requestedPort.map(String.init) ?? ""
+                    portError = nil; editPort = true
+                }
+                Button("Use Automatic Port") { portError = nil; receiver.changePort(nil) }
+            }
+            .disabled(!receiver.enabled)
+            if let portError { Text(portError).foregroundStyle(.red) }
+            Text("Changing the port disconnects transfers. The last successfully bound port is reused on restart.")
+                .font(.caption).foregroundStyle(.secondary)
             if !server.fingerprint.isEmpty {
                 Text("TLS fingerprint: \(TVReceiverKeychain.displayFingerprint(server.fingerprint))")
                     .font(.caption.monospaced()).foregroundStyle(.secondary)
             }
-            Text("Keep TVContainer open. Approve pairing on Apple TV before the first transfer, then confirm each app or certificate import.")
+            Text("Keep TVContainer’s launcher open and this server enabled. In SideTVStore, pair or select this TV in the Apple TV tab, then open Settings → TVContainer, choose that paired TV, enter the TCP port shown here, and connect. Both devices need the same reachable local network and Local Network access.")
+                .foregroundStyle(.secondary)
+            Text("First approve the TV fingerprint on iPhone, then approve the phone fingerprint on Apple TV. Developer-device pairing does not authorize transfers. Confirm each app or certificate import separately. The connection checkmark appears only while an authenticated TLS connection is open; it clears after each upload connection closes.")
                 .foregroundStyle(.secondary)
             Button("Forget Paired Devices") { forget = true }
         }
         .focusSection()
+        .alert("Change TCP Port", isPresented: $editPort) {
+            TextField("1–65535", text: $portText)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            Button("Use Port") {
+                let value = portText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !value.isEmpty, value.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+                      let port = UInt16(value), port > 0 else {
+                    portError = "Enter a whole TCP port number from 1 to 65535."; return
+                }
+                portError = nil; receiver.changePort(port)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("Choose a port from 1 to 65535. Update SideTVStore’s port field after it binds successfully. Active transfers will disconnect.") }
         .alert("Forget paired devices?", isPresented: $forget) {
             Button("Forget", role: .destructive) { receiver.forgetPeers() }
             Button("Cancel", role: .cancel) {}

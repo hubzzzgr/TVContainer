@@ -5,17 +5,47 @@ TVContainer; SideTVStore must implement the TLS handshake below before sending
 the existing upload frames. There is no plaintext TCP fallback and no shared
 developer signing identity used for transport encryption.
 
-## Discovery and lifetime
+## Direct connection and lifetime
 
-Browse `_tvcontainer._tcp` over Bonjour. Resolve the service's actual TCP port;
-never hard-code a port. TXT records contain the actual Apple TV `deviceName`,
-TVContainer `appVersion`, and `protocol=1`. Names and discovery records are hints,
-not authentication. The TLS certificate fingerprint is the identity.
+TVContainer runs a direct TCP TLS listener without Bonjour service publication.
+It does not configure `NWListener.Service`, declare `_tvcontainer._tcp`, or depend
+on discovery/publication succeeding. It does not advertise another service type.
 
-Settings persists the enabled preference (off initially). The listener and its
-Bonjour advertisement start when TVContainer's launcher is active and enabled.
-Disabling, leaving the launcher, or backgrounding closes the listener and its
-connections. Relaunching a guest replaces this launcher process as before.
+In SideTVStore, pair/select the TV in the Apple TV tab, open Settings → TVContainer,
+choose that saved TV, enter the current port displayed by TVContainer, and connect.
+SideTVStore uses its existing Apple TV pairing discovery to find the chosen TV's
+address within a short window, then falls back to the saved pairing address.
+No developer tunnel, installation service, or new developer pairing is required.
+Addresses and friendly names are routing/display hints, including when stale;
+the independent TLS certificate pin authenticates the receiver. Existing developer
+pairing does not authorize transfer pairing. Phone-side editable port preferences
+belong to the selected saved TV UUID, so duplicate names cannot share routing state.
+Save a valid port submitted with Connect even if connecting fails. Changing a
+transfer destination must not change SideTVStore's My Apps library destination.
+
+TVContainer persists its enabled preference (off initially) and last successfully
+bound TCP port. First use selects an ephemeral port; later starts request the saved
+port. Only `NWListener.ready` with an actual bound port updates the displayed port
+and saved preference. Failure never shows a requested/stale port as a bound port.
+Settings offers Change TCP Port (1–65535) and explicit Use Automatic Port recovery.
+A busy/unavailable saved port produces a clear error; there is no silent fallback.
+After a change, copy the newly displayed port into SideTVStore's editable field.
+Changing the port closes existing connections and preserves TLS/signing identities.
+
+Keep both devices on the same reachable local network, with Local Network access
+granted in the actual iPhone host, including a LiveContainer-hosted SideTVStore.
+Removing the custom Bonjour declaration does not bypass local-network privacy.
+The launcher must remain open with the receiver enabled. Disabling or actual
+backgrounding closes the listener and all connections. Native TV keyboard
+presentation does not stop it. Launching a guest replaces the launcher process.
+No background keep-alive, port scanning, rendezvous server, or extra handshake
+listener is used.
+
+Settings shows separate listener and SideTVStore connection indicators. The latter
+is green only while at least one connection has completed mutual TLS; opening TCP
+or presenting an unapproved certificate cannot light it. One upload uses one
+connection, so it clears after completion, disconnect, disable, or backgrounding.
+A previously paired phone is not necessarily currently connected.
 
 ## Pairing: mutual TLS 1.3 and certificate pins
 
@@ -30,10 +60,13 @@ connections. Relaunching a guest replaces this launcher process as before.
    through the TLS handshake. Session tickets and resumption are disabled.
 3. On the first connection, BOTH devices show the SHA-256 fingerprint of each
    leaf certificate's **DER bytes** (64 uppercase hex characters). The user must
-   compare both fingerprints, then approve on Apple TV and approve/pin the TV
-   certificate in SideTVStore. Do not silently accept every server certificate.
+   first compare/approve the TV fingerprint on iPhone, allowing its server-trust
+   callback to finish; then compare/approve the phone fingerprint on Apple TV.
+   Waiting for the TV Pair popup before allowing the phone's server verification
+   can deadlock the handshake. Pin the approved TV only after TLS reaches ready.
+   Do not silently accept every server certificate.
    Use a custom `sec_protocol_options_set_verify_block` for the self-signed
-   certificate; match the approved pin rather than the IP, Bonjour name, or CN.
+   certificate; match the approved pin rather than the IP, saved TV UUID, or CN.
    Certificate CN can be the device's friendly name for display only.
 4. Apple TV's native Pair/Cancel prompt expires after 60 seconds. A known
    certificate skips that prompt on subsequent handshakes. A new/changed
@@ -48,7 +81,7 @@ connections. Relaunching a guest replaces this launcher process as before.
 Apple TV holds its TLS identity and approved client pins in a separate Keychain
 service. Its local identity container uses a random nonempty wrapping password
 kept only inside that encrypted Keychain value (empty-password PKCS#12 derivation
-differs between Apple and OpenSSL). P12 passwords never belong in Bonjour, request headers, preferences,
+differs between Apple and OpenSSL). P12 passwords never belong in discovery, request headers, preferences,
 logs, URLs, or pairing messages.
 
 ## Upload framing (inside TLS)
@@ -97,8 +130,10 @@ Cancel. The existing platform, Mach-O, signing and guest installation checks run
 on confirmation. The response reports that installer's actual success/failure.
 
 For P12, a certificate already installed causes rejection without replacement.
-The import dialog contains a secure password field on **Apple TV** (empty is
-allowed). The password is not sent by SideTVStore; it is validated using the
+The import dialog contains a secure password field on **Apple TV**. SideTVStore's
+current-certificate export is passwordless after explicit phone consent: leave
+that field empty. Other valid P12s may require a password. The password is not
+sent by SideTVStore; it is validated using the
 existing developer identity importer and stored only in the encrypted Keychain.
 The password dialog allows 180 seconds for remote entry; other confirmations
 expire after 60 seconds. Certificate-validation diagnostics are suppressed.
@@ -120,9 +155,17 @@ test-only Keychain namespaces: framing and limits, split/coalesced frames,
 pairing approval/rejection, client-certificate requirements, plaintext rejection,
 persistent trust/identity, importer result propagation, certificate-present
 policy, interrupted/disabled transfers, temporary-file cleanup, and atomic
-certificate storage under concurrent writers. The normal standalone archive
-compiles tvOS UI, Bonjour declarations and Security/Network integration.
+certificate storage under concurrent writers. Direct connections run without
+Bonjour configuration. Port checks cover persisted reuse, occupied-port failure
+without saving/displaying a false bind, explicit automatic recovery, a selected
+port, unchanged TLS identity, and the authenticated connection indicator. The
+normal standalone archive compiles tvOS UI and Security/Network integration.
 
-Apple TV / SideTVStore physical discovery, fingerprint comparison, remote
-confirmation/password entry, and provisioned IPA/P12 imports still require a
-device test. Never publish private IPA, certificate, password, or pairing fixtures.
+Physical Apple TV / LiveContainer-hosted SideTVStore validation remains required:
+paired-TV address routing with Local Network allowed/denied; two saved TVs with
+duplicate names and independent persisted ports; restart/port/IP changes and
+stale-address failures; first approval/saved-pin reconnect/changed-pin rejection
+and Forget Paired Devices; remote confirmation/password entry; real provisioned
+IPA/P12 import results, early errors, cancellation, existing-certificate refusal,
+and disconnect after approval. Loopback/build success does not establish physical
+compatibility. Never publish private IPA, certificate, password, or pairing fixtures.

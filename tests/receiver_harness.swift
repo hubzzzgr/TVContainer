@@ -86,12 +86,19 @@ import Darwin
         defer { SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: keychain.service] as CFDictionary) }
         let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
-        let server = TVTCPReceiver(deviceName: "Test Apple TV", appVersion: "1.2.3", keychain: keychain, advertise: false,
+        let suite = "org.tvcontainer.receiver-port-tests.\(UUID())"
+        let preferences = UserDefaults(suiteName: suite)!
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let server = TVTCPReceiver(deviceName: "Test Apple TV", appVersion: "1.2.3", keychain: keychain, preferences: preferences,
             temporaryDirectory: temporaryDirectory)
         var pairCount = 0, allowPair = true, importCount = 0, releaseCount = 0, reservationCount = 0
         var rejection: String?, importResult = TVTransferResponse(ok: true, message: "Actually installed")
         var files: [URL] = [], received = Data()
-        server.pair = { _, _, _ in pairCount += 1; return allowPair }
+        server.pair = { _, _, _ in
+            // An unapproved handshake is not a connected SideTVStore session.
+            if pairCount == 0 { assert(!server.connected) }
+            pairCount += 1; return allowPair
+        }
         server.reserve = { _, _ in
             if rejection == nil { reservationCount += 1 }
             return rejection
@@ -105,7 +112,9 @@ import Darwin
         print("Receiver initial listener state: \(server.status)")
         try await wait { server.running }
         print("Receiver stage: listener ready")
-        assert(server.txtRecords == ["deviceName":"Test Apple TV", "appVersion":"1.2.3", "protocol":"1"])
+        assert(!server.connected)
+        let initialPort = server.port!
+        assert(preferences.integer(forKey: "sideTVStoreTCPPort") == Int(initialPort))
         let identityPassword = UUID().uuidString
         let identity = try TVReceiverKeychain.importIdentity(TVReceiverIdentity.create(deviceName: "Test iPhone", password: identityPassword), password: identityPassword)
         func client(_ identity: SecIdentity?) async throws -> TestClient {
@@ -114,6 +123,7 @@ import Darwin
         }
         let payload = Data((0..<Int(valid.size)).map { UInt8($0 % 251) })
         let first = try await client(identity)
+        try await wait { server.connected }
         let header = try TVTransferProtocol.frame(valid)
         // Fragment the length prefix and coalesce the JSON tail with payload.
         for byte in header.prefix(4) { try await first.send(Data([byte])) }
@@ -123,6 +133,7 @@ import Darwin
         assert(firstResult == importResult && received == payload && importCount == 1 && pairCount == 1)
         first.connection.cancel()
         try await wait { releaseCount == 1 }
+        try await wait { !server.connected }
         assert(files.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         let peers = try keychain.trustedPeers()
         assert(peers.count == 1)
@@ -170,7 +181,9 @@ import Darwin
         let peersAfterRejection = try keychain.trustedPeers()
         assert(pairCount == 2 && peersAfterRejection.count == 1)
         await rejectedClient(nil)
+        try await wait { !server.connected }
         assert(importCount == 2)
+        assert(!server.connected)
 
         // Plain TCP framing cannot bypass TLS or reach application handlers.
         let plain = TestClient(port: server.port!, pin: "", identity: nil, plaintext: true)
@@ -187,17 +200,85 @@ import Darwin
         let pin = server.fingerprint
         server.stop()
         try await wait { releaseCount == 4 }
-        assert(!server.running && server.port == nil && importCount == 2)
+        assert(!server.running && server.port == nil && !server.connected && importCount == 2)
         assert(files.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: temporaryDirectory.path)
         assert(leftovers.isEmpty)
         // Identity and peer trust survive restart; TLS tickets aren't used.
         server.start(); try await wait { server.running }
-        assert(server.fingerprint == pin)
+        assert(server.fingerprint == pin && server.port == initialPort)
         let reconnect = try await client(identity); reconnect.connection.cancel()
         assert(pairCount == 2)
+        try await wait { !server.connected }
+
+        // Occupy another port: failure cannot be displayed or saved as a bound port.
+        let blocker = try NWListener(using: .tcp, on: .any)
+        var blockerReady = false, blockerClosed = false
+        blocker.stateUpdateHandler = { state in
+            switch state {
+            case .ready: blockerReady = true
+            case .cancelled: blockerClosed = true
+            case .failed(let error): fatalError("Port blocker failed: \(error)")
+            default: break
+            }
+        }
+        blocker.start(queue: .main)
+        try await wait { blockerReady }
+        let blockedPort = blocker.port!.rawValue
+        assert(blockedPort != initialPort)
+        server.configurePort(blockedPort); server.start()
+        try await wait { server.status.contains("Use Automatic Port") }
+        assert(!server.running && server.port == nil && !server.connected)
+        assert(server.requestedPort == blockedPort && server.status.contains(String(blockedPort)))
+        assert(preferences.integer(forKey: "sideTVStoreTCPPort") == Int(initialPort))
+        // A new receiver reads only the last successful bind, not the failed choice.
+        let restored = TVTCPReceiver(deviceName: "Test Apple TV", appVersion: "1.2.3", keychain: keychain,
+            preferences: preferences, temporaryDirectory: temporaryDirectory)
+        assert(restored.requestedPort == initialPort)
+        restored.start(); try await wait { restored.running }
+        assert(restored.port == initialPort && restored.fingerprint == pin)
+        restored.stop()
+
+        // Explicit automatic-port recovery preserves the established TLS identity.
+        server.configurePort(nil); server.start()
+        assert(server.port == nil)
+        try await wait { server.running }
+        assert(server.port != blockedPort && server.fingerprint == pin)
+        assert(preferences.integer(forKey: "sideTVStoreTCPPort") == Int(server.port!))
+        let recovered = try await client(identity)
+        try await wait { server.connected }
+        assert(pairCount == 2)
+        let other = try await client(identity)
+        recovered.connection.cancel()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        assert(server.connected) // One remaining authenticated phone is still connected.
+        other.connection.cancel(); try await wait { !server.connected }
         server.stop()
-        print("Receiver tests passed: strict framing, TLS pinning, pairing/rejection/reconnect, streamed payload, actual results, existing-certificate policy, truncated uploads, disable and cleanup.")
+
+        // A user-selected port is used exactly after the previous owner releases it.
+        blocker.cancel(); try await wait { blockerClosed }
+        server.configurePort(blockedPort); server.start()
+        assert(server.port == nil)
+        try await wait { server.running }
+        assert(server.port == blockedPort && server.fingerprint == pin)
+        assert(preferences.integer(forKey: "sideTVStoreTCPPort") == Int(blockedPort))
+
+        // A changed server pin is rejected on the phone; forgetting phone pins
+        // forces a new TV approval without replacing the receiver's identity.
+        let wrongPin = TestClient(port: blockedPort, pin: String(repeating: "0", count: 64), identity: identity)
+        do { try await wrongPin.connect(); fatalError("Changed server pin accepted") } catch {}
+        wrongPin.connection.cancel()
+        try await wait { !server.connected }
+        server.stop(); try keychain.forgetPeers()
+        server.start(); try await wait { server.running }
+        assert(server.fingerprint == pin)
+        allowPair = true
+        let pairedAgain = try await client(identity)
+        try await wait { server.connected }
+        assert(pairCount == 3)
+        pairedAgain.connection.cancel(); try await wait { !server.connected }
+        server.stop()
+        print("Receiver tests passed: direct TLS without Bonjour, stable/occupied/automatic/explicit ports, authenticated connection status, strict framing, pinning, pairing/rejection/reconnect, streaming/results, certificate policy, interruption and cleanup.")
 
         func rejectedClient(_ value: SecIdentity?) async {
             do {

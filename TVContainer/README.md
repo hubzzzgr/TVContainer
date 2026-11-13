@@ -41,8 +41,13 @@ scannable GitHub QR codes. Press Back on the remote to dismiss it.
 ## Use
 
 Settings also offers an optional **SideTVStore TCP Server** with a persisted
-toggle, live listener status, device name and port. Pairing uses mutual TLS with
-Apple TV approval and certificate fingerprints, followed by separate confirmation
+toggle, live listener and authenticated connection status, device name, bound port,
+and TLS fingerprint. In SideTVStore, select a saved TV through Settings → TVContainer
+and enter this port. Connections use the paired TV's address directly without
+custom Bonjour publication. The receiver reuses its last successfully bound port;
+Settings offers a different port or explicit automatic selection if it is busy.
+Pairing uses mutual TLS with iPhone approval first, then Apple TV approval and
+certificate fingerprints, followed by separate confirmation
 for each incoming IPA or P12. Existing signing certificates cannot be replaced
 through TCP. See [the shared sender/receiver contract](../docs/SIDETVSTORE-RECEIVER.md)
 for the SideTVStore handshake and exact wire framing.
