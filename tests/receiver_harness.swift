@@ -62,7 +62,7 @@ import Darwin
     @MainActor static func main() async throws {
         setbuf(stdout, nil)
         // Watchdog prevents a broken network callback from hanging CI.
-        Task { try await Task.sleep(nanoseconds: 90_000_000_000); fatalError("Receiver tests timed out") }
+        Task { try await Task.sleep(nanoseconds: 150_000_000_000); fatalError("Receiver tests timed out") }
         let valid = TVUploadHeader(version: 1, action: "uploadIPA", filename: "test.ipa", size: 200_003)
         let decoded = try TVTransferProtocol.header(JSONEncoder().encode(valid))
         assert(decoded == valid)
@@ -126,6 +126,11 @@ import Darwin
         let payload = Data((0..<Int(valid.size)).map { UInt8($0 % 251) })
         let first = try await client(identity)
         try await wait { server.connected }
+        assert(server.authenticatedIdleTimeout == 900)
+        // A real delay beyond the old 30-second timeout must not reserve a slot.
+        try await Task.sleep(nanoseconds: 31_000_000_000)
+        assert(server.connected && reservationCount == 0 && importCount == 0)
+        let idleCompanion = try await client(identity)
         let header = try TVTransferProtocol.frame(valid)
         // Fragment the length prefix and coalesce the JSON tail with payload.
         for byte in header.prefix(4) { try await first.send(Data([byte])) }
@@ -135,10 +140,30 @@ import Darwin
         assert(firstResult == importResult && received == payload && importCount == 1 && pairCount == 1)
         first.connection.cancel()
         try await wait { releaseCount == 1 }
+        assert(server.connected) // Another idle client did not block this upload.
+        idleCompanion.connection.cancel()
         try await wait { !server.connected }
         assert(files.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         let peers = try keychain.trustedPeers()
         assert(peers.count == 1)
+
+        // Graceful TLS EOF while idle clears status without waiting for expiry.
+        let graceful = try await client(identity)
+        try await wait { server.connected }
+        let closedAt = Date()
+        graceful.connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in })
+        try await wait { !server.connected }
+        assert(Date().timeIntervalSince(closedAt) < 3 && reservationCount == 1)
+        graceful.connection.cancel()
+
+        // A single prefix byte cannot obtain the long authenticated idle window.
+        let partial = try await client(identity)
+        try await wait { server.connected }
+        try await partial.send(Data([0]))
+        try await Task.sleep(nanoseconds: 31_000_000_000)
+        try await wait { !server.connected }
+        assert(reservationCount == 1 && importCount == 1)
+        partial.connection.cancel()
 
         // Same identity reconnects without another Apple TV pairing prompt.
         importResult = .failure("Actual signing failure")
@@ -284,6 +309,24 @@ import Darwin
         assert(pairCount == 3)
         pairedAgain.connection.cancel(); try await wait { !server.connected }
         server.stop()
+        // Shorten only the pre-request idle window for deterministic expiry;
+        // no production header/payload timeout changes are needed for the test.
+        let expiring = TVTCPReceiver(deviceName: "Test Apple TV", appVersion: "1.2.3", keychain: keychain,
+            preferences: preferences, temporaryDirectory: temporaryDirectory, authenticatedIdleTimeout: 0.5)
+        var idleReservations = 0
+        expiring.reserve = { _, _ in idleReservations += 1; return nil }
+        expiring.start(); try await wait { expiring.running }
+        let idle = TestClient(port: expiring.port!, pin: expiring.fingerprint, identity: identity)
+        try await idle.connect(); try await wait { expiring.connected }
+        try await wait { !expiring.connected }
+        assert(idleReservations == 0)
+        idle.connection.cancel()
+        let disabledIdle = TestClient(port: expiring.port!, pin: expiring.fingerprint, identity: identity)
+        try await disabledIdle.connect(); try await wait { expiring.connected }
+        expiring.stop()
+        assert(!expiring.connected && idleReservations == 0)
+        disabledIdle.connection.cancel()
+        print("Authenticated idle tests passed: >30-second idle upload, simultaneous idle clients without reservation, graceful EOF, short partial-prefix timeout, idle expiry and disable.")
         print("Receiver tests passed: direct TLS without Bonjour, stable/occupied/automatic/explicit ports, authenticated connection status, strict framing, pinning, pairing/rejection/reconnect, streaming/results, certificate policy, interruption and cleanup.")
 
         func rejectedClient(_ value: SecIdentity?) async {

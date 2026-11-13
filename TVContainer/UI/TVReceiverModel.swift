@@ -178,6 +178,8 @@ struct TVReceiverSettings: View {
             Label(server.connected ? "SideTVStore connected" : "SideTVStore disconnected",
                   systemImage: server.connected ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(server.connected ? .green : .red)
+            Text("Authenticated idle limit: \(Int(server.authenticatedIdleTimeout / 60)) minutes before sending a request. Reconnect in SideTVStore after it expires.")
+                .font(.caption).foregroundStyle(.secondary)
             Text("Device: \(server.deviceName.isEmpty ? "Unavailable" : server.deviceName)")
             Text("TCP port: \(server.port.map(String.init) ?? "—")").monospacedDigit()
             if receiver.enabled {

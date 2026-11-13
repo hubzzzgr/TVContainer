@@ -37,7 +37,7 @@ targets:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '10'
+        CFBundleVersion: '11'
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]

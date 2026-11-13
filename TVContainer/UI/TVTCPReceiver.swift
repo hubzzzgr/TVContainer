@@ -15,6 +15,7 @@ final class TVTCPReceiver: ObservableObject {
     @Published private(set) var deviceName: String
     let appVersion: String
     let keychain: TVReceiverKeychain
+    let authenticatedIdleTimeout: TimeInterval
     var pair: ((UUID, String, String) async -> Bool)?
     var reserve: ((UUID, TVUploadHeader) -> String?)?
     var upload: ((UUID, TVUploadHeader, URL) async -> TVTransferResponse)?
@@ -31,7 +32,10 @@ final class TVTCPReceiver: ObservableObject {
     let temporaryDirectory: URL
 
     init(deviceName: String, appVersion: String, keychain: TVReceiverKeychain = TVReceiverKeychain(), preferences: UserDefaults = .standard,
-         temporaryDirectory: URL = FileManager.default.temporaryDirectory.appendingPathComponent("TVContainerReceiver", isDirectory: true)) {
+         temporaryDirectory: URL = FileManager.default.temporaryDirectory.appendingPathComponent("TVContainerReceiver", isDirectory: true),
+         authenticatedIdleTimeout: TimeInterval = 15 * 60) {
+        precondition(authenticatedIdleTimeout > 0 && authenticatedIdleTimeout.isFinite)
+        self.authenticatedIdleTimeout = authenticatedIdleTimeout
         self.deviceName = deviceName
         self.appVersion = appVersion
         self.keychain = keychain
@@ -203,8 +207,13 @@ final class TVTCPReceiver: ObservableObject {
             if reserved { release?(id) }
         }
         var response: TVTransferResponse
+        var requestStarted = false
         do {
-            let lengthBytes = try await readExactly(4, from: connection)
+            // Only a completely idle, authenticated peer gets the longer wait.
+            // Read exactly one byte so coalesced headers/payload remain buffered.
+            let firstByte = try await readChunk(maximum: 1, from: connection, timeout: authenticatedIdleTimeout)
+            requestStarted = true
+            let lengthBytes = firstByte + (try await readExactly(3, from: connection))
             let headerBytes = try await readExactly(TVTransferProtocol.length(lengthBytes), from: connection)
             let header = try TVTransferProtocol.header(headerBytes)
             guard let reserve else { throw TVTransferFailure("The receiver is not ready.") }
@@ -239,7 +248,9 @@ final class TVTCPReceiver: ObservableObject {
         if response.message.utf8.count > 8_192 {
             response = .init(ok: response.ok, message: String(String.UnicodeScalarView(response.message.unicodeScalars.prefix(2_000))))
         }
-        guard !Task.isCancelled else { return }
+        // Idle EOF/timeout has no request to answer. Close promptly rather than
+        // keeping the connected indicator lit while attempting a result write.
+        guard requestStarted, !Task.isCancelled else { return }
         switch connection.state { case .failed, .cancelled: return; default: break }
         // Result is sent only after the importer finishes, never on mere receipt.
         if let bytes = try? TVTransferProtocol.frame(response) {

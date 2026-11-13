@@ -111,7 +111,13 @@ rather than the filename extension, determine validity. Unknown version/actions,
 malformed JSON, truncated files and idle connections fail. TCP packet boundaries
 are irrelevant. The payload is streamed in chunks of at most 64 KiB to private,
 protected temporary storage. A transfer can last at most 30 minutes and cannot
-remain idle for more than 30 seconds per read.
+remain idle for more than 30 seconds per read after the first request byte.
+An authenticated connection may wait up to 15 minutes for that first single byte
+without reserving the installer. The other three prefix bytes and JSON header
+retain the short timeout; partial headers never gain the long idle window. Idle
+EOF, cancellation, disable and backgrounding close the connection promptly. After
+a final result, the sender may reconnect without resending an upload to restore
+idle connected status. Expired idle connections require reconnecting.
 
 The response is a four-byte big-endian JSON byte length followed by UTF-8 JSON:
 
