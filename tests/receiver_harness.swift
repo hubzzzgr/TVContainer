@@ -212,14 +212,18 @@ import Darwin
         try await wait { !server.connected }
 
         // Occupy another port: failure cannot be displayed or saved as a bound port.
-        let blocker = try NWListener(using: .tcp, on: .any)
+        // Use fresh parameters; NWConnection can specialize a shared parameters
+        // object with a remote endpoint, which is invalid for a listener.
+        let blocker = try NWListener(using: NWParameters(tls: nil, tcp: NWProtocolTCP.Options()), on: .any)
         var blockerReady = false, blockerClosed = false
         blocker.stateUpdateHandler = { state in
-            switch state {
-            case .ready: blockerReady = true
-            case .cancelled: blockerClosed = true
-            case .failed(let error): fatalError("Port blocker failed: \(error)")
-            default: break
+            Task { @MainActor in
+                switch state {
+                case .ready: blockerReady = true
+                case .cancelled: blockerClosed = true
+                case .failed(let error): fatalError("Port blocker failed: \(error)")
+                default: break
+                }
             }
         }
         blocker.start(queue: .main)
