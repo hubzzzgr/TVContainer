@@ -212,9 +212,9 @@ import Darwin
         try await wait { !server.connected }
 
         // Occupy another port: failure cannot be displayed or saved as a bound port.
-        // Use fresh parameters; NWConnection can specialize a shared parameters
-        // object with a remote endpoint, which is invalid for a listener.
+        // An independent plain TCP listener owns the busy-port test fixture.
         let blocker = try NWListener(using: NWParameters(tls: nil, tcp: NWProtocolTCP.Options()), on: .any)
+        blocker.newConnectionHandler = { $0.cancel() }
         var blockerReady = false, blockerClosed = false
         blocker.stateUpdateHandler = { state in
             Task { @MainActor in
