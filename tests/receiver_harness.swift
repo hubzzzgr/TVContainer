@@ -151,7 +151,8 @@ import Darwin
         let graceful = try await client(identity)
         try await wait { server.connected }
         let closedAt = Date()
-        graceful.connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in })
+        graceful.connection.send(content: nil, contentContext: .finalMessage, isComplete: true,
+            completion: .contentProcessed { _ in graceful.connection.cancel() })
         try await wait { !server.connected }
         assert(Date().timeIntervalSince(closedAt) < 3 && reservationCount == 1)
         graceful.connection.cancel()
