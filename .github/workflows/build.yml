@@ -34,6 +34,16 @@ jobs:
         run: bash tests/test_downloads.sh
 
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Release
+            suffix: ''
+            ipa: TVContainer.ipa
+          - configuration: Debug
+            suffix: '-debug'
+            ipa: TVContainer-Debug.ipa
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -52,21 +62,31 @@ jobs:
           set -o pipefail
           xcodebuild archive -project TVContainer.xcodeproj -scheme TVContainer \
             -destination 'generic/platform=tvOS' -sdk appletvos \
-            -archivePath build/TVContainer.xcarchive -configuration Release \
+            -archivePath build/TVContainer.xcarchive -configuration '${{ matrix.configuration }}' \
             CODE_SIGNING_ALLOWED=NO | tee build.log
+      - name: Verify debug isolation and shared app ID
+        run: python3 tests/validate_debug_variant.py build/TVContainer.xcarchive/Products/Applications/TVContainer.app '${{ matrix.configuration }}'
       - name: Package standalone IPA
+        env:
+          ipa_name: ${{ matrix.ipa }}
         run: bash .github/build_github.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: TVContainer-tvOS-standalone
-          path: build/TVContainer.ipa
+          name: TVContainer-tvOS-standalone${{ matrix.suffix }}
+          path: build/${{ matrix.ipa }}
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: TVContainer-build-log
+          name: TVContainer-build-log${{ matrix.suffix }}
           path: build.log
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: matrix.configuration == 'Debug'
+        with:
+          name: TVContainer-debug-symbols
+          path: build/TVContainer.xcarchive/dSYMs
+          if-no-files-found: error
 
   archive-tests:
     runs-on: macos-15
@@ -99,6 +119,14 @@ jobs:
           submodules: recursive
       - name: Test main bundle hooks without instruction scanning
         run: bash tests/test_bundle_hooks.sh
+      - name: Test local crash capture and release isolation
+        run: |
+          xcrun clang -fobjc-arc -DDEBUG=1 -framework Foundation \
+            tests/crash_logs_harness.m TVContainer/Runtime/TVCrashLogs.m -o build/crash-log-tests
+          build/crash-log-tests
+          xcrun clang -fobjc-arc -framework Foundation \
+            tests/crash_logs_harness.m TVContainer/Runtime/TVCrashLogs.m -o build/crash-log-release-tests
+          build/crash-log-release-tests
       - name: Test bundled tweak loading and filters
         run: |
           xcrun clang -dynamiclib tests/tweak_probe.c -o build/TweakProbe.dylib

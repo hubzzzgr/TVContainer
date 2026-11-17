@@ -12,6 +12,7 @@
 #import "../TVContainer/Runtime/TVPlatform.h"
 #import "../TVContainer/Runtime/TVGuestBundle.h"
 #import "../TVContainer/Runtime/TVGuestTweaks.h"
+#import "../TVContainer/Runtime/TVCrashLogs.h"
 #endif
 
 #include <dlfcn.h>
@@ -751,6 +752,9 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
 }
 
 static void exceptionHandler(NSException *exception) {
+#if TARGET_OS_TV && DEBUG
+    TVCrashRecordException(exception);
+#endif
     NSString *error = [NSString stringWithFormat:@"%@\nCall stack: %@", exception.reason, exception.callStackSymbols];
     if(isLiveProcess) {
         NSExtensionContext *context = [NSClassFromString(@"LiveProcessHandler") extensionContext];
@@ -771,6 +775,9 @@ int LiveContainerMain(int argc, char *argv[]) {
     setenv("LC_HOME_PATH", getenv("HOME"), 0);
 #if TARGET_OS_TV
     setenv("LC_HOST_HOME_PATH", getenv("HOME"), 1);
+#if DEBUG
+    TVCrashLoggingStart(TVStorageRoot(), [lcUserDefaults stringForKey:@"selected"] ?: @"TVContainer launcher");
+#endif
     setenv("LC_HOME_PATH", TVStorageRoot().path.fileSystemRepresentation, 1);
     lcSharedDefaults = lcUserDefaults;
     lcAppGroupPath = LCSharedUtils.appGroupPath.path;

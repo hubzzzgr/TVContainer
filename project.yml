@@ -1,9 +1,17 @@
 name: TVContainer
+configs:
+  Debug: debug
+  Release: release
 options:
   deploymentTarget:
     tvOS: '17.0'
   createIntermediateGroups: true
 settings:
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: ['$(inherited)', DEBUG]
+      GCC_PREPROCESSOR_DEFINITIONS: ['$(inherited)', 'DEBUG=1']
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
   base:
     SDKROOT: appletvos
     SUPPORTED_PLATFORMS: appletvos appletvsimulator
@@ -37,7 +45,7 @@ targets:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '12'
+        CFBundleVersion: '13'
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]

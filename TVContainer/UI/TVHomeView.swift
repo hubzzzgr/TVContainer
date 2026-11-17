@@ -12,6 +12,9 @@ struct TVHomeView: View {
             TVAppsView(showProjects: $showProjects).tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(0)
             TVInstallView(url: $installURL).tabItem { Label("Install from URL", systemImage: "arrow.down.circle") }.tag(1)
             TVSettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(2)
+#if DEBUG
+            TVCrashLogsView().tabItem { Label("Logs", systemImage: "doc.text.magnifyingglass") }.tag(3)
+#endif
         }
         .disabled(showProjects)
         .overlay {
