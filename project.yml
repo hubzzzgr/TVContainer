@@ -25,6 +25,7 @@ settings:
     SWIFT_VERSION: '5.0'
     CODE_SIGNING_ALLOWED: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+    TV_TOP_SHELF_APP_GROUP: group.com.hubzzzgr.tvcontainer.topshelf
     HEADER_SEARCH_PATHS:
       - $(SRCROOT)/LiveContainer
       - $(SRCROOT)/LiveContainerSwiftUI/Utilities
@@ -45,7 +46,8 @@ targets:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '13'
+        CFBundleVersion: '14'
+        TVTopShelfAppGroup: $(TV_TOP_SHELF_APP_GROUP)
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
             CFBundleURLSchemes: [tvcontainer]
@@ -81,9 +83,36 @@ targets:
         embed: true
         copy:
           destination: frameworks
+      - target: TVContainerTopShelf
+        link: false
+        embed: true
       - framework: OpenSSL/Frameworks/OpenSSL.xcframework
         link: false
         embed: true
+  TVContainerTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: TVContainer/TopShelf
+      - path: TVContainer/TopShelfShared
+    info:
+      path: build/TVContainerTopShelf-Info.plist
+      properties:
+        CFBundleDisplayName: TVContainer Top Shelf
+        CFBundleShortVersionString: '1.0.7'
+        CFBundleVersion: '14'
+        TVTopShelfAppGroup: $(TV_TOP_SHELF_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.tv-top-shelf
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ContentProvider
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.hubzzzgr.tvcontainer.topshelf
+      CODE_SIGN_ENTITLEMENTS: TVContainer/TopShelf/TVContainerTopShelf.entitlements
+      APPLICATION_EXTENSION_API_ONLY: YES
+      ENABLE_DEBUG_DYLIB: NO
+      SKIP_INSTALL: YES
+    dependencies:
+      - sdk: TVServices.framework
   LiveContainerShared:
     type: framework
     platform: tvOS
@@ -106,6 +135,7 @@ targets:
     platform: tvOS
     sources:
       - path: TVContainer/UI
+      - path: TVContainer/TopShelfShared
       - path: TVContainer/Installer
       - path: LiveContainerSwiftUI/Utilities/unarchive.m
     settings:
@@ -122,6 +152,7 @@ targets:
       - sdk: Security.framework
       - sdk: CryptoKit.framework
       - sdk: SystemConfiguration.framework
+      - sdk: TVServices.framework
   ZSign:
     type: library.dynamic
     platform: tvOS

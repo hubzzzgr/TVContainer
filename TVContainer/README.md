@@ -65,6 +65,22 @@ app deletion, download cancellation, and certificate removal. Deep links of the
 form `tvcontainer://install?url=<percent-encoded-download-url>` prefill the URL
 form without installing automatically.
 
+### Top Shelf signing
+
+The standalone IPA includes `PlugIns/TVContainerTopShelf.appex`. Sign the app
+and extension with tvOS profiles from the same developer team. The app ID is
+`com.hubzzzgr.tvcontainer` and the extension ID is
+`com.hubzzzgr.tvcontainer.topshelf`. Enable the same registered App Group on
+both IDs and preserve that entitlement on both signatures. The default is
+`group.com.hubzzzgr.tvcontainer.topshelf`. To use a group registered to your own
+team, set `TV_TOP_SHELF_APP_GROUP` at build time or update
+`TVTopShelfAppGroup` in both Info.plists before signing them with that group.
+
+Open the launcher once to publish existing apps. Then place TVContainer in the
+top row and focus it to see installed apps. TVContainer updates the shelf after
+app installs and deletions. The shared group holds only the shelf’s names,
+launch identifiers, and artwork.
+
 ## Hosting and limitations
 
 The installer verifies arm64 tvOS platform commands and rejects encrypted,

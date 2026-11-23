@@ -7,3 +7,5 @@ BOOL TVSaveSigningIdentity(NSData *certificate, NSString *password, NSError **er
 BOOL TVSaveSigningIdentityIfAbsent(NSData *certificate, NSString *password, NSError **error);
 BOOL TVRemoveSigningIdentity(NSError **error);
 BOOL TVRelaunch(void (^completion)(NSError *error));
+NSString * _Nullable TVTopShelfLaunchFolder(NSURL *url);
+void TVLaunchGuestFolder(NSString *folder, void (^completion)(NSError *error));

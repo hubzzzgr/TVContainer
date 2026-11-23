@@ -171,7 +171,6 @@ struct TVReceiverSettings: View {
     init(receiver: TVReceiverModel) { self.receiver = receiver; server = receiver.server }
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("SideTVStore TCP Server").font(.title2.bold())
             Toggle("Receive from SideTVStore", isOn: $receiver.enabled)
             Label(server.status, systemImage: server.running ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(server.running ? .green : .red)
@@ -205,7 +204,6 @@ struct TVReceiverSettings: View {
                 .foregroundStyle(.secondary)
             Button("Forget Paired Devices") { forget = true }
         }
-        .focusSection()
         .alert("Change TCP Port", isPresented: $editPort) {
             TextField("1–65535", text: $portText)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()

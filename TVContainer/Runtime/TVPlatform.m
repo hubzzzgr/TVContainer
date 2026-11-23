@@ -38,6 +38,41 @@ NSURL *TVStorageRoot(void) {
     return [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/Library/Caches/TVContainer", hostHome] isDirectory:YES];
 }
 
+NSString *TVTopShelfLaunchFolder(NSURL *url) {
+    NSURLComponents *parts = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    if (![parts.scheme.lowercaseString isEqualToString:@"tvcontainer"] ||
+        ![parts.host isEqualToString:@"top-shelf"] || parts.path.length ||
+        parts.user || parts.password || parts.port || parts.fragment || parts.queryItems.count != 1) return nil;
+    NSURLQueryItem *item = parts.queryItems.firstObject;
+    NSString *folder = item.value;
+    if (![item.name isEqualToString:@"app"] || ![folder.pathExtension isEqualToString:@"app"] ||
+        ![[NSUUID alloc] initWithUUIDString:folder.stringByDeletingPathExtension]) return nil;
+    return folder;
+}
+
+void TVLaunchGuestFolder(NSString *folder, void (^completion)(NSError *)) {
+    if (![folder.lastPathComponent isEqualToString:folder] || ![folder.pathExtension isEqualToString:@"app"]) {
+        completion([NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Invalid app path."}]);
+        return;
+    }
+    NSURL *apps = [TVStorageRoot() URLByAppendingPathComponent:@"Documents/Applications" isDirectory:YES];
+    NSURL *app = [apps URLByAppendingPathComponent:folder isDirectory:YES];
+    NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfURL:[app URLByAppendingPathComponent:@"LCAppInfo.plist"]];
+    NSString *container = metadata[@"LCDataUUID"];
+    if (![container isKindOfClass:NSString.class] || ![[NSUUID alloc] initWithUUIDString:container]) {
+        completion([NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"The app or its container is missing. Reinstall it from its URL."}]);
+        return;
+    }
+    if ([NSUserDefaults.guestAppInfo[@"LCDataUUID"] isEqual:container]) return;
+    NSUserDefaults *defaults = NSUserDefaults.lcUserDefaults ?: NSUserDefaults.standardUserDefaults;
+    [defaults setObject:folder forKey:@"selected"];
+    [defaults setObject:container forKey:@"selectedContainer"];
+    [defaults synchronize];
+    if (!TVRelaunch(completion)) {
+        completion([NSError errorWithDomain:@"TVContainer" code:1 userInfo:@{NSLocalizedDescriptionKey: @"tvOS could not relaunch TVContainer. Close and reopen it to launch the selected guest."}]);
+    }
+}
+
 static NSDictionary *identityQuery(void) {
     return @{(__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
              (__bridge id)kSecAttrService: @"com.kdt.tvcontainer.signing",

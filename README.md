@@ -34,6 +34,12 @@ The IPA is unsigned. Sign it with your Apple TV development provisioning profile
 3. Select an app card, then **Launch**, or press **Play/Pause** in the details screen.
 4. Inside a guest app, hold **Play/Pause** for two seconds to request a return to the library.
 
+Hold **Select** on an installed app card to open its Launch and Delete App menu.
+For Home Screen shortcuts, open TVContainer once after installing it, move it to
+the top row, then select an app from the **Installed Apps** section in Top Shelf.
+The app and its bundled Top Shelf extension both need tvOS provisioning profiles
+that authorize the same App Group. See [Top Shelf signing](TVContainer/README.md#top-shelf-signing).
+
 ## Compatibility and storage
 
 TVContainer does not emulate iOS frameworks; iPhone apps must be ported or rebuilt for tvOS. Guest app extensions and arbitrary external tweaks are not supported.
@@ -46,7 +52,7 @@ A successful build does not establish on-device compatibility. See the [tvOS bui
 
 On a Mac with Xcode and XcodeGen, follow the [build guide](TVContainer/README.md#build). Build the **TVContainer** scheme in the generated **TVContainer.xcodeproj** using [project.yml](project.yml).
 
-GitHub Actions builds only the standalone `TVContainer.ipa`.
+GitHub Actions builds standalone Release and Debug IPAs.
 
 ## License and credits
 

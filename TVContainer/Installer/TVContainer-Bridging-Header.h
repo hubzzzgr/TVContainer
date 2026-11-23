@@ -2,3 +2,4 @@
 #import "../../ZSign/TVReceiverIdentity.h"
 #import "TVReceiverDeviceInfo.h"
 #import "../Runtime/TVCrashLogs.h"
+#import "../Runtime/TVPlatform.h"

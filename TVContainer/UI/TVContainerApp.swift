@@ -61,6 +61,7 @@ final class TVLibrary: ObservableObject {
                 icon: TVGuestIcon.load(bundleURL: url, info: info))
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         certificateInstalled = TVInstaller.hasCertificate()
+        TVTopShelfPublisher.publish(apps)
     }
 
     static func remoteURL(_ input: String) throws -> URL {
@@ -124,9 +125,24 @@ final class TVLibrary: ObservableObject {
             Task { @MainActor in self?.error = error?.localizedDescription }
         }
     }
-    func remove(_ app: TVGuest) {
-        do { try TVInstaller.removeApp(app.id); reload() }
-        catch { self.error = error.localizedDescription }
+    func launchFromTopShelf(_ folder: String) {
+        guard !busy else {
+            error = "Wait for the current operation, then select the app again."
+            return
+        }
+        guard let app = apps.first(where: { $0.id == folder }) else {
+            error = "This app is no longer installed."
+            return
+        }
+        launch(app)
+    }
+    @discardableResult
+    func remove(_ app: TVGuest) -> Bool {
+        guard !busy else { return false }
+        // Data removal can fail after the bundle is already gone.
+        defer { reload() }
+        do { try TVInstaller.removeApp(app.id); return true }
+        catch { self.error = error.localizedDescription; return false }
     }
     func cancelDownload() { if downloading { operation?.cancel() } }
 

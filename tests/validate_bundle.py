@@ -12,6 +12,7 @@ required = [
     'Frameworks/ZSign.dylib',
     'Frameworks/TweakLoader.dylib',
     'Frameworks/OpenSSL.framework/OpenSSL',
+    'PlugIns/TVContainerTopShelf.appex/TVContainerTopShelf',
 ]
 info = plistlib.loads((app / 'Info.plist').read_bytes())
 assert info['CFBundleDisplayName'] == 'TVContainer'
@@ -21,9 +22,22 @@ assert info['UIDeviceFamily'] == [3]
 icons = info.get('CFBundleIcons', info.get('CFBundleIcons~appletv', {}))
 assert icons.get('CFBundlePrimaryIcon'), 'Missing Apple TV Home Screen icon metadata'
 assert list(app.glob('*.car')) or list(app.glob('*.lsr')), 'Missing compiled icon artwork'
+top_shelf = app / 'PlugIns/TVContainerTopShelf.appex'
+extension_info = plistlib.loads((top_shelf / 'Info.plist').read_bytes())
+assert extension_info['CFBundleIdentifier'] == info['CFBundleIdentifier'] + '.topshelf'
+assert extension_info['CFBundleVersion'] == info['CFBundleVersion']
+assert extension_info['CFBundleShortVersionString'] == info['CFBundleShortVersionString']
+assert extension_info['CFBundleSupportedPlatforms'] == ['AppleTVOS']
+assert extension_info['CFBundlePackageType'] == 'XPC!'
+assert extension_info['NSExtension'] == {
+    'NSExtensionPointIdentifier': 'com.apple.tv-top-shelf',
+    'NSExtensionPrincipalClass': 'TVContainerTopShelf.ContentProvider',
+}
+assert extension_info['TVTopShelfAppGroup'] == info['TVTopShelfAppGroup']
+assert info['TVTopShelfAppGroup'].startswith('group.')
 for path in app.rglob('*'):
     assert 'sidestore' not in path.name.lower(), path
-    assert path.suffix != '.appex', path
+    assert path.suffix != '.appex' or path == top_shelf, path
 
 identities = set()
 dependencies = []

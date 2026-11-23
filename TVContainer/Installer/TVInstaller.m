@@ -139,17 +139,7 @@ static NSError *TVError(NSString *message) {
 }
 
 + (void)launchApp:(NSString *)folder completion:(void (^)(NSError *))completion {
-    if (![folder.lastPathComponent isEqualToString:folder]) { completion(TVError(@"Invalid app path.")); return; }
-    NSURL *app = [self.applicationsURL URLByAppendingPathComponent:folder];
-    NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfURL:[app URLByAppendingPathComponent:@"LCAppInfo.plist"]];
-    if (!metadata[@"LCDataUUID"]) { completion(TVError(@"The app or its container is missing. Reinstall it from its URL.")); return; }
-    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    [defaults setObject:folder forKey:@"selected"];
-    [defaults setObject:metadata[@"LCDataUUID"] forKey:@"selectedContainer"];
-    [defaults synchronize];
-    if (!TVRelaunch(completion)) {
-        completion(TVError(@"tvOS could not relaunch TVContainer. Close and reopen it to launch the selected guest."));
-    }
+    TVLaunchGuestFolder(folder, completion);
 }
 + (BOOL)removeApp:(NSString *)folder error:(NSError **)error {
     if (![folder.lastPathComponent isEqualToString:folder]) return NO;

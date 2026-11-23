@@ -37,6 +37,11 @@ struct TVHomeView: View {
             Button("OK") { library.error = nil }
         } message: { Text(library.error ?? "") }
         .onOpenURL { url in
+            if let folder = TVTopShelfLaunchFolder(url) {
+                selectedTab = 0
+                library.launchFromTopShelf(folder)
+                return
+            }
             guard url.scheme?.lowercased() == "tvcontainer", url.host == "install",
                   let value = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "url" })?.value else { return }
             installURL = value
@@ -48,6 +53,7 @@ struct TVHomeView: View {
 struct TVAppsView: View {
     @EnvironmentObject private var library: TVLibrary
     @State private var search = ""
+    @State private var pendingDeletion: TVGuest?
     @Binding var showProjects: Bool
     private var filtered: [TVGuest] {
         library.apps.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.bundleID.localizedCaseInsensitiveContains(search) }
@@ -92,13 +98,19 @@ struct TVAppsView: View {
                                     TVGuestCard(app: app)
                                 }
                                 .buttonStyle(.card)
-                                .contextMenu { Button("Launch", systemImage: "play.fill") { library.launch(app) } }
+                                .contextMenu {
+                                    Button("Launch", systemImage: "play.fill") { library.launch(app) }
+                                        .disabled(library.busy)
+                                    Button("Delete App", systemImage: "trash", role: .destructive) { pendingDeletion = app }
+                                        .disabled(library.busy)
+                                }
                             }
                         }
                         if filtered.isEmpty { Text("No matching apps.").foregroundStyle(.secondary) }
                     }
                 }.padding(64)
             }
+            .modifier(TVDeleteAppConfirmation(app: $pendingDeletion))
         }
     }
 }
@@ -107,7 +119,7 @@ struct TVAppDetailView: View {
     let app: TVGuest
     @EnvironmentObject private var library: TVLibrary
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmDelete = false
+    @State private var pendingDeletion: TVGuest?
     @FocusState private var launchFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
@@ -123,7 +135,7 @@ struct TVAppDetailView: View {
             HStack(spacing: 36) {
                 Button("Launch", systemImage: "play.fill") { library.launch(app) }
                     .focused($launchFocused).disabled(library.busy)
-                Button("Delete App", systemImage: "trash", role: .destructive) { confirmDelete = true }.disabled(library.busy)
+                Button("Delete App", systemImage: "trash", role: .destructive) { pendingDeletion = app }.disabled(library.busy)
             }
             Text("Press Play/Pause to launch. Inside a guest app, hold Play/Pause for two seconds to return to TVContainer.")
                 .font(.callout).foregroundStyle(.secondary).frame(maxWidth: 1000, alignment: .leading)
@@ -131,8 +143,21 @@ struct TVAppDetailView: View {
         .padding(80).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .onAppear { launchFocused = true }
         .onPlayPauseCommand { library.launch(app) }
-        .alert("Delete \(app.name)?", isPresented: $confirmDelete) {
-            Button("Delete App and Data", role: .destructive) { library.remove(app); dismiss() }
+        .modifier(TVDeleteAppConfirmation(app: $pendingDeletion) { dismiss() })
+    }
+}
+
+private struct TVDeleteAppConfirmation: ViewModifier {
+    @EnvironmentObject private var library: TVLibrary
+    @Binding var app: TVGuest?
+    var onDeleted: () -> Void = {}
+
+    func body(content: Content) -> some View {
+        content.alert(app.map { "Delete \($0.name)?" } ?? "Delete app?", isPresented: Binding(
+            get: { app != nil }, set: { if !$0 { app = nil } }), presenting: app) { guest in
+            Button("Delete App and Data", role: .destructive) {
+                if library.remove(guest) { onDeleted() }
+            }
             Button("Cancel", role: .cancel) {}
         } message: { Text("This removes the installed app and its local container.") }
     }
@@ -185,31 +210,34 @@ struct TVSettingsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: 36) {
                     Text("Settings").font(.largeTitle.bold())
-                    TVReceiverSettings(receiver: receiver)
-                    Divider().padding(.vertical)
-                    Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
-                          systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "key")
-                        .foregroundStyle(library.certificateInstalled ? .green : .orange)
-                    Text("Import Certificate from URL").font(.title2.bold())
-                    Text("Use a P12 signing identity from the same developer team used to sign TVContainer. The certificate and password are stored in this Apple TV’s Keychain.").foregroundStyle(.secondary)
-                    TextField("https://example.com/certificate.p12", text: $certificateURL)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
-                    SecureField("Certificate password (may be empty)", text: $password).disabled(library.busy)
-                    HStack(spacing: 36) {
-                        Button("Download Certificate", systemImage: "key.fill") {
-                            library.importCertificate(certificateURL, password: password)
-                            password = ""
-                        }.disabled(library.busy || certificateURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        if library.certificateInstalled {
-                            Button("Remove Certificate", role: .destructive) { confirmRemove = true }.disabled(library.busy)
-                        }
+                    TVSettingsGroup("SideTVStore TCP Server", icon: "network") {
+                        TVReceiverSettings(receiver: receiver)
                     }
-                    TVOperationStatus()
-                    Divider().padding(.vertical)
-                    Text("Local Storage").font(.title2.bold())
-                    Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
+                    TVSettingsGroup("Signing Certificate", icon: "key") {
+                        Label(library.certificateInstalled ? "Signing certificate installed" : "No signing certificate",
+                              systemImage: library.certificateInstalled ? "checkmark.seal.fill" : "exclamationmark.circle")
+                            .foregroundStyle(library.certificateInstalled ? .green : .orange)
+                        Text("Enter a P12 download URL from the developer team that signed TVContainer. The certificate and password are stored in this Apple TV’s Keychain.")
+                            .foregroundStyle(.secondary)
+                        TextField("https://example.com/certificate.p12", text: $certificateURL)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled().disabled(library.busy)
+                        SecureField("Certificate password (may be empty)", text: $password).disabled(library.busy)
+                        HStack(spacing: 36) {
+                            Button("Download Certificate", systemImage: "key.fill") {
+                                library.importCertificate(certificateURL, password: password)
+                                password = ""
+                            }.disabled(library.busy || certificateURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            if library.certificateInstalled {
+                                Button("Remove Certificate", role: .destructive) { confirmRemove = true }.disabled(library.busy)
+                            }
+                        }
+                        TVOperationStatus()
+                    }
+                    TVSettingsGroup("Local Storage", icon: "internaldrive") {
+                        Text("tvOS may purge cached apps and guest data when storage is low. Keep your original IPAs and back up important guest data outside Apple TV.").foregroundStyle(.secondary)
+                    }
                     Text("TVContainer · Standalone · tvOS 17+").font(.caption).foregroundStyle(.secondary)
                 }.padding(80).frame(maxWidth: 1400, alignment: .leading)
             }
@@ -219,6 +247,29 @@ struct TVSettingsView: View {
             } message: { Text("Import it again before installing or signing more apps.") }
         }
         .background(TVSettingsRemoteControl { receiver.fingerprintsHidden.toggle() }.frame(width: 0, height: 0))
+    }
+}
+
+private struct TVSettingsGroup<Content: View>: View {
+    let title: String
+    let icon: String
+    let content: Content
+
+    init(_ title: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Label(title, systemImage: icon).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+            content
+        }
+        .padding(36)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .focusSection()
     }
 }
 
