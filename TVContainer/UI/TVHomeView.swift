@@ -159,7 +159,7 @@ private struct TVDeleteAppConfirmation: ViewModifier {
                 if library.remove(guest) { onDeleted() }
             }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("This removes the installed app and its local container.") }
+        } message: { _ in Text("This removes the installed app and its local container.") }
     }
 }
 
