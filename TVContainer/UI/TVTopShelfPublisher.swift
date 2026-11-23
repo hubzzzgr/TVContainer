@@ -9,7 +9,7 @@ enum TVTopShelfPublisher {
         let files = FileManager.default
         do {
             try files.createDirectory(at: directory, withIntermediateDirectories: true)
-            let entries = try guests.compactMap { guest -> TVTopShelfEntry? in
+            let entries: [TVTopShelfEntry] = try guests.compactMap { guest in
                 guard guest.id.hasSuffix(".app"), UUID(uuidString: String(guest.id.dropLast(4))) != nil else { return nil }
                 let data = artwork(for: guest)
                 let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -26,9 +26,9 @@ enum TVTopShelfPublisher {
             try data.write(to: manifest, options: .atomic)
             TVTopShelfContentProvider.topShelfContentDidChange()
 
-            let artwork = Set(entries.map(\.artwork))
+            let activeImages = Set(entries.map(\.artwork))
             for file in (try? files.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
-                where file.pathExtension == "png" && !artwork.contains(file.lastPathComponent) {
+                where file.pathExtension == "png" && !activeImages.contains(file.lastPathComponent) {
                 try? files.removeItem(at: file)
             }
         } catch {
