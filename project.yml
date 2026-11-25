@@ -46,7 +46,7 @@ targets:
         CFBundleDisplayName: TVContainer
         CFBundleName: TVContainer
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '14'
+        CFBundleVersion: '15'
         TVTopShelfAppGroup: $(TV_TOP_SHELF_APP_GROUP)
         CFBundleURLTypes:
           - CFBundleURLName: com.hubzzzgr.tvcontainer.urlscheme
@@ -100,7 +100,7 @@ targets:
       properties:
         CFBundleDisplayName: TVContainer Top Shelf
         CFBundleShortVersionString: '1.0.7'
-        CFBundleVersion: '14'
+        CFBundleVersion: '15'
         TVTopShelfAppGroup: $(TV_TOP_SHELF_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.tv-top-shelf
